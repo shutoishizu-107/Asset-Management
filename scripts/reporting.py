@@ -54,7 +54,8 @@ def charts_body(snapshot):
 
 def render_charts(info):
     s = info['snapshot']
-    return page('資産配分グラフ', header(s, '資産配分グラフ') + '<section>' + charts_body(s) + '<p class="muted">分母はCSV内の投資信託評価額。銀行預金を含みません。商品グループはファンド名による分類で、内部の地域・資産配分ではありません。</p></section><footer>出典：' + escape(s['source_file']) + '</footer>')
+    nav = '<nav><a href="../../index.html">Dashboard</a><a href="../index.html">月次レポート一覧</a></nav>'
+    return page('資産配分グラフ', header(s, '資産配分グラフ') + nav + '<section>' + charts_body(s) + '<p class="muted">分母はCSV内の投資信託評価額。銀行預金を含みません。商品グループはファンド名による分類で、内部の地域・資産配分ではありません。</p></section><footer>出典：' + escape(s['source_file']) + '</footer>')
 
 
 def render_report(info, tag):
@@ -67,7 +68,7 @@ def render_report(info, tag):
     )
     body = header(s, '資産運用分析レポート')
     body += render_executive_summary(info)
-    body += '<nav><a href="#goal">1億円目標</a><a href="#portfolio">現在の保有</a><a href="#diagnosis">診断</a><a href="#nisa">NISA</a><a href="#funds">ファンド候補</a><a href="#portfolio-options">配分案</a><a href="#existing-assets">既存資産</a><a href="#risk">リスク</a><a href="#methodology">計算根拠</a></nav>'
+    body += '<nav><a href="../../index.html">Dashboard</a><a href="../index.html">月次レポート一覧</a><a href="#goal">1億円目標</a><a href="#portfolio">現在の保有</a><a href="#diagnosis">診断</a><a href="#nisa">NISA</a><a href="#funds">ファンド候補</a><a href="#portfolio-options">配分案</a><a href="#existing-assets">既存資産</a><a href="#risk">リスク</a><a href="#methodology">計算根拠</a></nav>'
     body += render_goal_tracker(info)
     body += render_current_portfolio(info)
     body += render_portfolio_diagnosis(info)
