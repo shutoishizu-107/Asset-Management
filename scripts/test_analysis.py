@@ -9,7 +9,7 @@ from html.parser import HTMLParser
 
 from analyze_holdings import parse_text, decode_csv, load_snapshot, percentage, integer, compare, contribution_projection, run
 from history_analysis import parse_export, reconcile, analyze_history
-from history_report import goal_projection, required_goal_return
+from history_report import goal_projection, required_goal_return, nisa_lifetime_exhaustion
 from reporting import render_report
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -98,24 +98,29 @@ class AnalysisTests(unittest.TestCase):
         self.assertEqual(after['FANG+']['weight_pct'], '10.58')
 
     def test_goal_projection_uses_age_based_contributions(self):
-        goal = {
-            'birth_year': 2003,
-            'birth_month': 1,
-            'target_age': 35,
-            'target_yen': 100000000,
-            'contributions_yen': {
-                'through_age_25': 150000,
-                'age_26_to_29': 200000,
-                'age_30_plus_base': 200000,
-                'age_30_plus_tentative': 250000,
-            },
-        }
+        profile = json.loads((ROOT / 'config/profile.json').read_text(encoding='utf-8'))
+        goal = json.loads((ROOT / 'config/goals.json').read_text(encoding='utf-8'))
+        goal = {**profile, **goal}
         as_of = '2026-09-26T15:19:45'
         base = goal_projection(10592284, as_of, 0, False, goal)
         increased = goal_projection(10592284, as_of, 0, True, goal)
         self.assertEqual(base, {'value_yen': 36242284, 'contributions_yen': 25650000, 'months': 135})
         self.assertEqual(increased, {'value_yen': 39242284, 'contributions_yen': 28650000, 'months': 135})
         self.assertEqual(round(required_goal_return(10592284, as_of, False, goal), 2), 13.68)
+
+    def test_nisa_snapshot_and_lifetime_projection(self):
+        assumptions = json.loads((ROOT / 'docs/analysis_assumptions.json').read_text(encoding='utf-8'))
+        profile = json.loads((ROOT / 'config/profile.json').read_text(encoding='utf-8'))
+        goal = json.loads((ROOT / 'config/goals.json').read_text(encoding='utf-8'))
+        nisa = assumptions['nisa_snapshot']
+        goal = {**profile, **goal}
+        self.assertEqual(nisa['annual']['total']['used_yen'], nisa['annual']['growth']['used_yen'] + nisa['annual']['tsumitate']['used_yen'])
+        self.assertEqual(nisa['annual']['total']['remaining_yen'], 2250000)
+        self.assertEqual(nisa['lifetime']['total']['remaining_yen'], 14488536)
+        base = nisa_lifetime_exhaustion(nisa['source_date'], goal, nisa)
+        increased = nisa_lifetime_exhaustion(nisa['source_date'], goal, nisa, True)
+        self.assertEqual((base['month'], base['age_years'], base['taxable_yen']), ('2033-05', 30, 161464))
+        self.assertEqual((increased['month'], increased['age_years'], increased['taxable_yen']), ('2033-04', 30, 161464))
 
     def test_comparison_new_and_removed_holdings(self):
         old = copy.deepcopy(self.snapshot)
@@ -135,18 +140,27 @@ class AnalysisTests(unittest.TestCase):
             info = run(ROOT, Path(directory))
             report = Path(directory) / 'reports/monthly/資産分析_202609.html'
             html = report.read_text(encoding='utf-8')
-            for text in ('10,592,284', '2,750,000', '価格変動', '35歳で1億円', '30歳から月25万円', '案A：成長株を上乗せ', '案B：地域分散', '案C：Gold 10%', '案D：Gold 5%', '候補21本', '全世界（除く米国）', '0.1838%'):
+            for text in ('10,592,284', '2,750,000', 'Executive Summary', '35歳で1億円', 'NISA戦略・利用状況', '1,350,000円', '14,488,536円', '19.5%', '2033年5月', '2033年4月', '案A：成長型', '案B：地域・サイズ分散型', '案C：Gold 10%型', '案D：Gold 5%型', '候補21本', '全世界（除く米国）', '0.1838%', '全売却'):
                 self.assertIn(text, html)
+            section_order = [html.index(marker) for marker in ('id="summary"', 'id="goal"', 'id="portfolio"', 'id="diagnosis"', 'id="nisa"', 'id="funds"', 'id="portfolio-options"', 'id="contributions"', 'id="existing-assets"', 'id="risk"', 'id="methodology"')]
+            self.assertEqual(section_order, sorted(section_order))
             self.assertNotIn('今後の推奨ポートフォリオ', html)
-            self.assertNotIn('積立案と期間を変更して確認', html)
             self.assertEqual(len(info['fund_candidates']['items']), 21)
             self.assertIn('基本コア', html)
-            for excluded in ('余力不足', '売却', '未完了注文額', '差引購入額', '純買付口数'):
+            for excluded in ('余力不足', '未完了注文額', '差引購入額', '純買付口数'):
                 self.assertNotIn(excluded, html)
             self.assertTrue((Path(directory) / 'reports/charts/資産配分_202609.html').is_file())
             index = (Path(directory) / 'reports/index.html').read_text(encoding='utf-8')
             self.assertIn('monthly/資産分析_202609.html', index)
             self.assertIn('charts/資産配分_202609.html', index)
+            dashboard = (Path(directory) / 'index.html').read_text(encoding='utf-8')
+            self.assertIn('Asset Management Dashboard', dashboard)
+            self.assertIn('Goal Projection', dashboard)
+            self.assertIn('reports/monthly/資産分析_202609.html', dashboard)
+            self.assertIn('2026-09-25画面転記', dashboard)
+            self.assertIn('10.6', dashboard)
+            for developer_text in ('CSVを配置', 'Python 3.10', 'Branch Strategy'):
+                self.assertNotIn(developer_text, dashboard)
             self.assertNotIn('<script src=', html)
             self.assertNotIn('https://cdn', html)
             HTMLParser().feed(html)

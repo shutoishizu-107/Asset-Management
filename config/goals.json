@@ -1,0 +1,11 @@
+{
+  "target_age": 35,
+  "target_yen": 100000000,
+  "contributions_yen": {
+    "through_age_25": 150000,
+    "age_26_to_29": 200000,
+    "age_30_plus_base": 200000,
+    "age_30_plus_tentative": 250000
+  },
+  "annual_return_scenarios_pct": [4, 6, 8, 10, 12]
+}

@@ -1,21 +1,20 @@
-﻿# 資産運用プロジェクト
+﻿# Asset Management
 
-SBI証券の保有状況・積立注文・約定履歴をローカルで集計し、月次のHTMLレポートを作成します。運用手順とレポートの書き方は本READMEを正とし、投資背景・現状・未確認事項は [引継ぎ](docs/handover.md) にまとめます。
+個人資産の分析Dashboardと月次レポートを生成するローカルPythonプロジェクトです。READMEはDeveloper Docs、公開Dashboardはルートの `index.html`、月次分析の詳細は `reports/monthly/` を正本とします。投資背景・現在地・未確認事項は [handover](docs/handover.md) を参照してください。
 
-## レポートを開く
+## Setup
 
-[レポート一覧・入口](reports/index.html)
+- Python 3.10以降
+- 標準ライブラリのみ。パッケージのインストールと外部通信は不要
+- 元データは `data/raw/` に配置し、入力ファイルを直接編集しない
 
-- [資産分析 2026年9月](reports/monthly/資産分析_202609.html)
-- [資産配分 2026年9月](reports/charts/資産配分_202609.html)
+## Deployment
 
-レポートの正本はHTMLのみです。Markdownレポートは作成・保持しません。READMEとhandoverは運用文書としてMarkdownで管理します。
+生成コマンドはルートのDashboard `index.html`、`reports/monthly/` の月次分析、`reports/charts/` の配分チャート、`reports/index.html` の月次一覧を作ります。GitHub Pagesの `/` にDashboardを公開する場合、Repository SettingsのPages sourceを `Deploy from a branch`、branchを `main`、folderを `/(root)` に設定してください。READMEは開発手順用として残します。
 
-HTML名は `何のレポートか_yyyymm.html` とし、分析は `資産分析_yyyymm.html`、グラフは `資産配分_yyyymm.html` に統一します。年月は実行日ではなく、最新の保有状況CSVの推定出力日の月です。同月の再実行ではその月のHTMLを上書きし、別月のHTMLは保持します。`reports/index.html` は固定の入口です。月の途中で取得したデータは月末残高と表現しません。
+月次HTML名は `資産分析_yyyymm.html`、チャート名は `資産配分_yyyymm.html`。年月は実行日ではなく、最新の保有状況CSVの推定出力月です。同月は上書きし、別月は保持します。月途中データを月末確定値とは表現しません。HTMLは単体で表示でき、CDN・外部フォント・外部データは読み込みません。公式資料リンクを開く場合のみWebへアクセスします。
 
-HTMLは単体で表示できます。月次分析には35歳で1億円を目指す年齢別積立シナリオ、運用率別の目標試算、A～Dの配分案を掲載します。候補ファンド比較の全入力は `docs/fund_candidates.json` に保存し、レポートでは折りたたんで表示します。CDN・外部フォント・外部データは読み込みません。公式資料へのリンクをクリックした場合はWebにアクセスします。
-
-## 毎月用意する情報
+## Data Import
 
 | 入力 | 必要な範囲・用途 | 配置・命名 |
 |---|---|---|
@@ -23,7 +22,8 @@ HTMLは単体で表示できます。月次分析には35歳で1億円を目指�
 | 積立買付注文履歴CSV（必須） | 選択した検索期間の全件。発注と約定の対応確認に使用 | `data/raw/csv/積立買付注文履歴_YYYYMMDD_YYYYMMDD.csv` |
 | 約定履歴CSV（必須） | 選択した検索期間の全件。買付実績と口数の照合に使用 | `data/raw/csv/約定履歴_YYYYMMDD_YYYYMMDD.csv` |
 | 前回の保有状況CSV | 前回比較を出す場合に必要。過去の保有CSVをrawに残す | 同上。最新と直前の2時点を自動比較 |
-| 現在の積立設定と目標積立前提 | 商品別の現在月額、本人申告の年齢別目標、確認日。設定変更があれば更新 | `docs/analysis_assumptions.json` |
+| プロフィール・目標条件 | 生年月、目標額・年齢、年齢別積立額 | `config/profile.json`, `config/goals.json` |
+| 現在の積立設定・NISA画面値 | 商品別の月額、年間/生涯枠の使用額・残額、画面確認日 | `docs/analysis_assumptions.json` |
 | ファンド候補比較の入力 | 候補商品、コスト目安、既存PFとの重複、分散効果、役割、検討位置。未検証の入力値は確認値と区別 | `docs/fund_candidates.json` |
 | 元ファイルの出典情報 | 元名、取得したファイルのSHA-256、対象期間、確認できる出力日時 | `docs/data_sources.json` |
 
@@ -33,12 +33,12 @@ HTMLは単体で表示できます。月次分析には35歳で1億円を目指�
 
 任意の補足情報は、評価基準日時、銀行残高と確認日、生活防衛資金、予定支出、許容損失額、口座名義・目的です。CSVで確認できない値は参考情報として区別します。銀行残高を後日の投信評価額に自動加算しません。画像は `data/raw/screenshots/` に保存できますが、自動取込の対象ではありません。
 
-## 月次作成の手順
+## Generate Report
 
 1. 上記3種類のCSVを取得し、元の内容を変更せず指定名で配置します。過去の保有状況CSVはrawに残してください。注文・約定履歴は各種類1ファイルだけをrawに置き、古い履歴は先に `data/history/originals/` へ保管します。同名の原本を上書きしないよう保管先を分けます。
 2. `docs/data_sources.json` の `files` に新しいCSVの相対パスをキーとして追加します。元名、SHA-256、検索期間、確認できる出力時刻を記録します。既存の出典情報は保持します。
-3. 積立設定や投資前提に変更があれば `docs/analysis_assumptions.json` の `source_date`、`monthly_contributions_yen` などを更新します。比較案は `scripts/diagnosis.py` の `PLANS`、`TARGET` にあります。実際の設定が変わった場合は `PLANS` の「現状継続」も整合させます。提案を採用済みの設定として扱わないでください。
-4. プロジェクト直下で生成コマンドを実行します。処理は最新の保有状況を選び、その月のHTML、加工CSV・JSON、保有スナップショット、入口HTMLを生成します。過去月をまとめて再生成する処理ではありません。
+3. プロフィール・目標条件が変われば `config/profile.json` と `config/goals.json` を更新します。現在の積立設定やSBI NISA画面が変わった場合は `docs/analysis_assumptions.json` を更新し、画面の利用可能額を転記します。残枠を保有簿価・約定履歴から逆算しません。
+4. プロジェクト直下で生成コマンドを実行します。処理は最新の保有状況を選び、ルートDashboard、月次HTML、加工CSV・JSON、保有スナップショット、月次レポート一覧を生成します。過去月をまとめて再生成する処理ではありません。
 5. 生成結果の基準日、対象期間、金額、前回比較、積立前提、出典日を確認します。HTMLの表・グラフ・リンク・狭い画面での表示を確認し、古いファイル名や掲載対象外の記載が残っていないことを確認します。
 6. 変更した前提・未確認事項だけを `docs/handover.md` に更新します。運用手順は本READMEへ集約し、重複管理を避けます。
 
@@ -63,7 +63,7 @@ Get-FileHash -Algorithm SHA256 -LiteralPath 'data/raw/csv/保有状況_20261031_
 
 履歴にも元名・ハッシュ・期間を同様に記録します。出力時刻が分からない場合は時刻を作らず `export_timestamp_inferred` を省略します。保有CSVはその場合ファイル名の日付で処理します。出力日を価格の評価基準日と同一視しないでください。保有CSVのハッシュ不一致は処理を停止するため、原因を確認せず記録済みハッシュを差し替えないでください。
 
-## 実行方法
+## Command Reference
 
 Python 3.10以降、標準ライブラリのみ。パッケージのインストールと外部通信は不要です。
 
@@ -85,37 +85,55 @@ python -B -m unittest discover -s scripts -p 'test_*.py' -v
 
 必要に応じて `--root`（入力プロジェクト）、`--output-root`（出力先）、`--assumptions`（積立前提JSON）、`--history-source-dir`（注文・約定CSVの明示的な入力先）を指定できます。通常の月次運用では指定不要です。
 
-## レポートの書き方
+## Update Fund Data
 
-- 冒頭に対象月、保有状況の推定出力日時、価格の評価基準日時が未確認である場合はその旨、履歴の検索期間を記載します。
-- 評価額・取得金額・評価損益と率、口座別・商品別配分、買付実績、前回比較、リスク診断、35歳で1億円を目指す積立試算、A～D配分案、候補ファンドの入力情報、前提・出典の順に、確認値と判断を分けて説明します。目標積立案を主方針とし、旧来の暫定推奨案や別の積立スライダーを重ねて掲載しません。前回データがない場合は比較を作らず、その旨を記載します。
-- 買付余力不足（買い付け余力不足）と売却に関する記述は、本文・表・グラフ・注記・リンクラベルを含めレポートに掲載しません。HTML生成処理で表示を制御し、元CSV・内部集計・検証データは保持します。
+- 現在の積立設定とSBI画面のNISA使用額は `docs/analysis_assumptions.json` に記録します。画像自体がプロジェクトにない場合は転記元と画面日を記し、残枠を履歴から再構築しません。
+- 生年月は `config/profile.json`、1億円の目標と年齢別積立・リターンシナリオは `config/goals.json` に保存します。
+- ファンド候補のコスト・重複・分散効果は `docs/fund_candidates.json` で入力情報と公式確認値を区別します。NISA対象枠・販売会社の取扱は商品ごとに確認します。
+
+## Branch Strategy
+
+ブランチ名は `<type>/<short-description>` とし、英小文字・kebab-caseに統一します。typeは `feature`、`fix`、`data`、`refactor`、`docs`。月次データ更新は `data/2026-10` のように命名します。
+
+## Data Sources
+
+原CSVのファイル名、SHA-256、期間、推定出力時刻は `docs/data_sources.json` に登録します。公式ページのURL・参照日は設定/候補データに記録し、毎月自動的に参照日や費用率を更新しません。
+
+## Assumptions and Methodology
+
+- ページはExecutive Summary、Goal Tracker、現在保有、診断、NISA、候補ファンド、ポートフォリオ案、積立額、既存資産、リスク、Data & Methodologyの順に構成し、結論から詳細へ読み進められるようにします。
+- 確認値、日付付き画面転記、モデル仮定を区別します。SBI NISA画面の残枠は入力値を正とし、保有残高や取得金額を生涯利用額として扱いません。
+- 買付余力不足（買い付け余力不足）はレポートに掲載しません。既存資産の扱いは新規積立案と区別し、「新規積立を止める」と「既存保有を売却する」を混同しません。実際の売買注文を行ったとは記載しません。
 - 金額は整数円、率はDecimalで計算して小数第2位に丸めます。保有明細だけを合算し、集計行を二重に加えません。取得金額は現在の保有分の簿価であり、累計入金額ではありません。
 - 注文と約定は加算しません。未完了注文を購入済みとせず、取引IDのない対応付けを確定照合と表現しません。前回からの評価額増減を、そのまま運用リターンと呼ばないでください。
-- CSV由来の確認値、日付付きの参考情報、モデル仮定を区別します。試算は価格・分配・税・費用の変化を織り込まない配分試算であり、収益予測ではありません。推奨案は条件付きの提案として記載します。
+- 目標試算は収益予測ではありません。NISA満額月は対象商品をNISAで購入し、将来売却による枠再利用がない等の条件付きシナリオとして表示します。
 - 全入出金履歴・期首評価額などが不足する場合、年率リターン、年初来リターン、最大ドローダウン、実現損益を作りません。概算の資産クラス比率と実際の組入比率を区別します。
 - 公式資料のURLと参照日を記載します。参照日を自動的に当月へ変えず、再確認した場合だけ `scripts/diagnosis.py` の出典を更新します。スクリプトは資料の更新を自動取得しません。
 
-## フォルダと保存方針
+## Directory Structure and Storage
 
 ```text
 asset-management/
-├─ README.md                 # 月次手順・書き方の正本
+├─ README.md                 # Developer Docs・更新手順
+├─ index.html                # 生成Dashboard（Pages root）
+├─ config/
+│  ├─ profile.json           # プロフィール
+│  └─ goals.json             # 目標・積立シナリオ
 ├─ data/
 │  ├─ raw/csv/               # 保有CSVは複数時点、履歴は各種類1件
-│  ├─ raw/screenshots/       # 補足画像
+│  ├─ raw/screenshots/       # 補足画像（自動取込なし）
 │  ├─ processed/             # 加工CSV・分析JSON
 │  └─ history/               # スナップショット、originals/の保管原本
 ├─ reports/
-│  ├─ index.html             # レポート入口
+│  ├─ index.html             # 月次レポート一覧
 │  ├─ monthly/資産分析_yyyymm.html
 │  └─ charts/資産配分_yyyymm.html
 ├─ scripts/                  # 取込・検証・集計・HTML生成・テスト
-├─ docs/
-   ├─ handover.md            # 背景・現状・未確認事項
-   ├─ analysis_assumptions.json
-  ├─ fund_candidates.json   # 候補ファンド比較の入力メモ
-   └─ data_sources.json
+└─ docs/
+  ├─ handover.md            # 背景・現状・未確認事項
+  ├─ analysis_assumptions.json # 現在設定・NISA画面転記
+  ├─ fund_candidates.json   # 候補ファンド比較の入力
+  └─ data_sources.json      # 元ファイル出典・SHA-256
 ```
 
 元CSVは読み取り専用として扱います。加工CSVは `内容_開始YYYYMMDD_終了YYYYMMDD.csv`、分析JSON・スナップショットは出力日時を含む名前で保存します。HTMLの月次命名規則はこれらの内部データには適用しません。同じ入力時点の加工データは再生成で上書きするため、改訂履歴を永久保存する仕組みではありません。過去月のHTMLを保持しても、リンク先の加工データが同名で再生成される場合があります。

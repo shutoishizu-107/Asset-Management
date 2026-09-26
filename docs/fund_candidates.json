@@ -11,6 +11,14 @@
     "SBI・V・全世界（除く米国）",
     "SBI-iShares Gold Hなし"
   ],
+  "nisa_eligibility": {
+    "eMAXIS Slim オルカン": {"tsumitate":"対象","growth":"対象","role":"長期コア。利用可能なら非課税枠を優先する候補。","taxable":"枠満額後も特定口座で保有・積立可能","verified_date":"2026-09-26","source_url":"https://emaxis.am.mufg.jp/fund/253425.html"},
+    "eMAXIS Slim S&P500": {"tsumitate":"対象","growth":"対象","role":"米国上乗せ。コアと合わせた集中度を確認。","taxable":"枠満額後も特定口座で保有・積立可能","verified_date":"2026-09-26","source_url":"https://emaxis.am.mufg.jp/fund/253266.html"},
+    "ニッセイNASDAQ100": {"tsumitate":"対象表示なし","growth":"対象","role":"成長サテライト候補。成長投資枠の利用を検討。","taxable":"枠満額後も特定口座で保有・積立可能","verified_date":"2026-09-26","source_url":"https://www.nam.co.jp/fundinfo/nn100if/memo.html"},
+    "Tracers S&P1000": {"tsumitate":"対象表示なし","growth":"対象","role":"サイズ分散候補。成長投資枠の利用を検討。","taxable":"枠満額後も特定口座で保有・積立可能","verified_date":"2026-09-26","source_url":"https://www.amova-am.com/fund/detail/645127"},
+    "SBI・V・全世界（除く米国）": {"tsumitate":"未確認","growth":"未確認","role":"対象枠を販売会社で確認後に配分。","taxable":"特定口座でも選択可能","verified_date":"2026-09-26","source_url":"https://apl.wealthadvisor.jp/webasp/sbi_am/pc/basic/sa_2025073104.html"},
+    "SBI-iShares Gold Hなし": {"tsumitate":"未確認","growth":"未確認","role":"対象枠を販売会社で確認後に配分。","taxable":"特定口座でも選択可能","verified_date":"2026-09-26","source_url":"https://apl.wealthadvisor.jp/webasp/sbi_am/pc/basic/sa_202306080A.html"}
+  },
   "items": [
     {"fund":"eMAXIS Slim オルカン","investment_target":"全世界株","cost_estimate":"総経費率 約0.07%","existing_overlap":"―","diversification":"◎ 地域","main_role":"基本コア","consideration":"◎"},
     {"fund":"eMAXIS Slim S&P500","investment_target":"米大型株","cost_estimate":"約0.10%前後","existing_overlap":"オルカンと高","diversification":"△","main_role":"米国オーバーウェイト","consideration":"○"},
