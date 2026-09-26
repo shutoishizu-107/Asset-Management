@@ -1,0 +1,1 @@
+"""External data provider adapters. Imports have no network side effects."""

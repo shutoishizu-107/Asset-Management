@@ -17,7 +17,7 @@
 ## Data Import
 
 | 入力 | 必要な範囲・用途 | 配置・命名 |
-|---|---|---|
+| --- | --- | --- |
 | 保有状況CSV（必須） | 同じ商品・口座範囲の全明細。評価額、取得金額、口数、損益と配分を集計 | `data/raw/csv/保有状況_YYYYMMDD_YYYYMMDD.csv` |
 | 積立買付注文履歴CSV（必須） | 選択した検索期間の全件。発注と約定の対応確認に使用 | `data/raw/csv/積立買付注文履歴_YYYYMMDD_YYYYMMDD.csv` |
 | 約定履歴CSV（必須） | 選択した検索期間の全件。買付実績と口数の照合に使用 | `data/raw/csv/約定履歴_YYYYMMDD_YYYYMMDD.csv` |
@@ -65,16 +65,18 @@ Get-FileHash -Algorithm SHA256 -LiteralPath 'data/raw/csv/保有状況_20261031_
 
 ## Command Reference
 
-Python 3.10以降、標準ライブラリのみ。パッケージのインストールと外部通信は不要です。
+Python 3.10以降、標準ライブラリのみ。通常生成とoffline生成はパッケージのインストールを必要としません。
 
 ```powershell
-python -B scripts/analyze_holdings.py
+python -B scripts/generate_monthly_report.py --month 2026-09
 ```
+
+External Data Cache節の`--refresh-external-data`、`--offline` optionもこのentry pointで利用できます。
 
 このPCで確認済みのPythonを指定する場合：
 
 ```powershell
-& 'C:\Users\shuto\AppData\Local\Programs\Python\Python314\python.exe' -B scripts/analyze_holdings.py
+& 'C:\Users\shuto\AppData\Local\Programs\Python\Python314\python.exe' -B scripts/generate_monthly_report.py --month 2026-09
 ```
 
 コード変更時のテスト：
@@ -90,6 +92,43 @@ python -B -m unittest discover -s scripts -p 'test_*.py' -v
 - 現在の積立設定とSBI画面のNISA使用額は `docs/analysis_assumptions.json` に記録します。画像自体がプロジェクトにない場合は転記元と画面日を記し、残枠を履歴から再構築しません。
 - 生年月は `config/profile.json`、1億円の目標と年齢別積立・リターンシナリオは `config/goals.json` に保存します。
 - ファンド候補のコスト・重複・分散効果は `docs/fund_candidates.json` で入力情報と公式確認値を区別します。NISA対象枠・販売会社の取扱は商品ごとに確認します。
+
+## External Data Providers
+
+通常のレポート生成はcache-firstです。月次snapshotがあれば同じ月のsnapshotを優先し、なければmetric TTL内のcacheを読みます。cache miss/expired metricだけを、`sources.yaml`で有効化・規約承認済みのproviderから取得します。
+
+```powershell
+python -B scripts/generate_monthly_report.py --month 2026-09
+```
+
+外部データの強制更新:
+
+```powershell
+python -B scripts/generate_monthly_report.py --month 2026-09 --refresh-external-data
+```
+
+オフライン実行はproviderへアクセスせず、月次snapshot、次にcacheだけを利用します。両方に値がなければ`unavailable`です。
+
+```powershell
+python -B scripts/generate_monthly_report.py --month 2026-09 --offline
+```
+
+metric別TTLは [`cache/cache_policy.yaml`](cache/cache_policy.yaml) にあります。freshはTTL内、staleは期限切れcacheを取得失敗/オフライン時にfallback利用、unavailableは有効cacheも取得値もない状態です。stale/unavailableの重要指標はSummaryにwarningを出し、fund scoring/recommendationは作りません。0、空値、nullは正常取得値として扱いません。
+
+cacheは `cache/` にentity単位、metric/provider別で保存し、更新時に上書き可能です。月次snapshotは `data/market/YYYY-MM-DD/` にfund/index/macro/NISA別で保存し、原則上書きしません。同日の強制更新はrevisionを作ります。再生成はsnapshotを優先して当時の外部データ状態を再現します。外部値をGitHub PagesやGitへ誤って含めないため、`cache/`、`data/market/`、`data/private/` はGit ignore対象です。
+
+cacheの個別削除例:
+
+```powershell
+Remove-Item -Recurse -Force cache/funds/VT.json
+```
+
+全cacheを消す場合は `Remove-Item -Recurse -Force cache`、月次snapshotは `data/market/` 内の対象日フォルダーを指定します。snapshotを消すとその月の外部データ再現性が失われ、offlineでは該当値がunavailableになります。
+
+APIキーは `.env.example` を `.env` にコピーしてローカル設定します。`.env` はGit ignore対象です。キーをURL、source registry、コード、ログへ書かないでください。取得を有効にする前に、source/resource単位の利用規約、license、cache/publication権限、rate limit、request budgetを確認します。未確認なら取得せず、HTML scrapingもしません。raw responseは明示許可がない限り保存しません。Yahoo Finance adapterはlocal fixture専用で、sample値は実データと混ぜません。詳細は [External Data Policy](docs/external-data-policy.md) を参照してください。
+APIキーは `.env.example` を `.env` にコピーしてローカル設定します。`.env` はGit ignore対象です。キーをURL、source registry、コード、ログへ書かないでください。取得を有効にする前に、source/resource単位の利用規約、license、cache/publication権限、rate limit、request budgetを確認します。未確認なら取得せず、HTML scrapingもしません。raw responseは明示許可がない限り保存しません。Yahoo Finance adapterはlocal fixture専用で、sample値は実データと混ぜません。詳細は [External Data Policy](docs/external-data-policy.md) を参照してください。
+
+Alpha VantageとFREDはAPI仕様上keyをquery parameterで要求しますが、本プロジェクトのcredential policyはURLへのkey埋め込みを禁止します。そのため現状のadapterはfail-closedとなり、準拠する認証経路が用意されるまで利用できません。
 
 ## Branch Strategy
 
@@ -119,20 +158,25 @@ asset-management/
 ├─ config/
 │  ├─ profile.json           # プロフィール
 │  └─ goals.json             # 目標・積立シナリオ
+├─ cache/                    # entity/metric/provider cache（Git ignore）
 ├─ data/
 │  ├─ raw/csv/               # 保有CSVは複数時点、履歴は各種類1件
 │  ├─ raw/screenshots/       # 補足画像（自動取込なし）
 │  ├─ processed/             # 加工CSV・分析JSON
+│  ├─ market/YYYY-MM-DD/     # 月次外部データsnapshot（Git ignore）
 │  └─ history/               # スナップショット、originals/の保管原本
 ├─ reports/
 │  ├─ index.html             # 月次レポート一覧
 │  ├─ monthly/資産分析_yyyymm.html
 │  └─ charts/資産配分_yyyymm.html
 ├─ scripts/                  # 取込・検証・集計・HTML生成・テスト
+├─ providers/                # 外部データadapter・共通schema・指標計算
+├─ sources.yaml              # provider候補・優先順位・規約/公開設定
 └─ docs/
   ├─ handover.md            # 背景・現状・未確認事項
   ├─ analysis_assumptions.json # 現在設定・NISA画面転記
   ├─ fund_candidates.json   # 候補ファンド比較の入力
+  ├─ external-data-policy.md # provider・license・publication policy
   └─ data_sources.json      # 元ファイル出典・SHA-256
 ```
 

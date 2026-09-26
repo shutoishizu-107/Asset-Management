@@ -7,11 +7,16 @@ import hashlib
 import io
 import json
 import re
+import sys
 import unicodedata
 from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 SUMMARY_HEADER = ['評価額 (円)', '評価損益 (円)', '評価損益 (率・%)', '前日比 (円)', '前日比 (率・%)']
 DETAIL_HEADER = ['ファンド名', '積立設定中', '定期売却設定中', '保有口数 (口)', '売却注文中 (口)',
@@ -235,7 +240,10 @@ def write_json(path, value):
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
 
-def run(root, output_root=None, assumptions_path=None, history_source_dir=None):
+def run(root, output_root=None, assumptions_path=None, history_source_dir=None, offline=False, refresh_external_data=False, month=None):
+    if offline and refresh_external_data:
+        raise ValueError('offline mode cannot be combined with external refresh')
+    persist_cache = output_root is None or output_root.resolve() == root.resolve()
     output_root = output_root or root
     assumptions_path = assumptions_path or root / 'docs/analysis_assumptions.json'
     assumptions = json.loads(assumptions_path.read_text(encoding='utf-8-sig'))
@@ -248,17 +256,59 @@ def run(root, output_root=None, assumptions_path=None, history_source_dir=None):
     paths = sorted((root / 'data/raw/csv').glob('保有状況_????????_????????.csv')) + sorted((root / 'data/raw/csv').glob('fundHoldings_*.csv'))
     if not paths:
         raise ValueError('No holdings snapshots in data/raw/csv')
-    snapshots = sorted((load_snapshot(path) for path in paths), key=lambda item: item['export_timestamp_inferred'])
+    snapshot_by_time = {snapshot['export_timestamp_inferred']: snapshot for snapshot in (load_snapshot(path) for path in paths)}
+    history_folder = root / 'data/history'
+    if history_folder.is_dir():
+        for snapshot_path in history_folder.glob('*_snapshot.json'):
+            try:
+                saved_snapshot = json.loads(snapshot_path.read_text(encoding='utf-8-sig'))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if saved_snapshot.get('schema_version') == 1 and saved_snapshot.get('validation') == 'passed':
+                timestamp = saved_snapshot.get('export_timestamp_inferred')
+                if timestamp:
+                    snapshot_by_time.setdefault(timestamp, saved_snapshot)
+    snapshots = sorted(snapshot_by_time.values(), key=lambda item: item['export_timestamp_inferred'])
     timestamps = [s['export_timestamp_inferred'] for s in snapshots]
     if len(set(timestamps)) != len(timestamps):
         raise ValueError('Duplicate export timestamp')
-    current = snapshots[-1]
-    comparison = compare(current, snapshots[-2] if len(snapshots) > 1 else None)
+    if month is not None and not re.fullmatch(r'\d{4}-\d{2}', month):
+        raise ValueError('Month must use YYYY-MM format')
+    month_snapshots = [item for item in snapshots if item['export_timestamp_inferred'][:7] == month] if month else snapshots
+    if not month_snapshots:
+        raise ValueError(f'No validated holdings snapshot available for month {month}')
+    current = month_snapshots[-1]
+    current_month = current['export_timestamp_inferred'][:7]
+    previous = next((item for item in reversed(snapshots) if item['export_timestamp_inferred'] < current['export_timestamp_inferred']), None)
+    comparison = compare(current, previous)
     projection = contribution_projection(current, assumptions)
     from history_analysis import analyze_history
     from diagnosis import diagnosis
     history = analyze_history(root / 'data/raw/csv', current['holdings'], history_source_dir)
     diagnostic = diagnosis(current, history)
+    from cache.monthly_snapshot import MonthlySnapshotStore
+    from providers.registry import collect_latest
+    market_store = MonthlySnapshotStore(root)
+    saved_market = market_store.latest(current_month, current['export_timestamp_inferred'][:10]) if not refresh_external_data else None
+    if saved_market is not None:
+        external_collection = {
+            'fetched_at': saved_market['manifest']['snapshot_created_at'],
+            'fetch_requested': False,
+            'requests_made': 0,
+            'public_records': saved_market['records'],
+            'fund_evaluations': saved_market['fund_evaluations'],
+            'snapshot_path': str(saved_market['path'].relative_to(root)),
+        }
+    else:
+        external_collection = collect_latest(root, persist=persist_cache, offline=offline, force_refresh=refresh_external_data)
+        if persist_cache:
+            saved_market = market_store.write(
+                current['export_timestamp_inferred'][:10],
+                external_collection['public_records'],
+                external_collection['fund_evaluations'],
+                force_revision=refresh_external_data,
+            )
+            external_collection['snapshot_path'] = str(saved_market['path'].relative_to(root))
     tag = current['export_timestamp_inferred'].replace('-', '').replace(':', '').replace('T', '')
     day_label = current['export_timestamp_inferred'][:10].replace('-', '')
     om, tm = history['orders']['metadata'], history['trades']['metadata']
@@ -304,7 +354,22 @@ def run(root, output_root=None, assumptions_path=None, history_source_dir=None):
         goals_sha256=hashlib.sha256(goals_path.read_bytes()).hexdigest(),
         fund_candidates=fund_candidates, fund_candidates_sha256=hashlib.sha256(candidate_path.read_bytes()).hexdigest(),
         handover_sha256=hashlib.sha256(handover).hexdigest(), snapshot_count=len(snapshots))
-    run_info.update(history=history, diagnosis=diagnostic, csv_outputs=export_names)
+    public_records = external_collection['public_records']
+    run_info.update(
+        history=history,
+        diagnosis=diagnostic,
+        csv_outputs=export_names,
+        external_data={
+            'fetched_at': external_collection['fetched_at'],
+            'fetch_requested': external_collection['fetch_requested'],
+            'requests_made': external_collection['requests_made'],
+            'monthly_snapshot_path': external_collection.get('snapshot_path'),
+            'available_count': sum(record['status'] == 'available' for record in public_records),
+            'unavailable_count': sum(record['status'] == 'unavailable' for record in public_records),
+            'records': public_records,
+            'fund_evaluations': external_collection['fund_evaluations'],
+        },
+    )
     for name, rows in {'orders': history['orders']['records'], 'executions': history['trades']['records'], 'history_monthly': history['monthly'], 'order_execution_matches': history['reconciliation'], 'unit_bridge': history['unit_bridge']}.items():
         write_csv(folders['processed'] / export_names[name], rows)
     write_json(folders['processed'] / f'{tag}_analysis.json', run_info)
@@ -324,10 +389,16 @@ def main():
     parser.add_argument('--output-root', type=Path)
     parser.add_argument('--assumptions', type=Path)
     parser.add_argument('--history-source-dir', type=Path)
+    parser.add_argument('--month', help='Report month as YYYY-MM; must match an available holdings snapshot')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--refresh-external-data', '--fetch-external-data', dest='refresh_external_data', action='store_true', help='Ignore cache TTL and refresh enabled, approved providers')
+    mode.add_argument('--offline', action='store_true', help='Do not access external providers; use only cache values')
     args = parser.parse_args()
-    info = run(args.root.resolve(), args.output_root, args.assumptions, args.history_source_dir)
+    root = args.root.resolve()
+    output_root = args.output_root.resolve() if args.output_root else None
+    info = run(root, output_root, args.assumptions, args.history_source_dir, args.offline, args.refresh_external_data, args.month)
     print(json.dumps({'status': 'ok', 'totals': info['snapshot']['totals'], 'categories': info['snapshot']['categories'],
-        'snapshot_count': info['snapshot_count']}, ensure_ascii=True))
+        'snapshot_count': info['snapshot_count'], 'external_data': info['external_data']}, ensure_ascii=True))
 
 
 if __name__ == '__main__':

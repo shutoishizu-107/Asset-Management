@@ -2,6 +2,7 @@ import copy
 import io
 import csv
 import json
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -173,6 +174,40 @@ class AnalysisTests(unittest.TestCase):
             self.assertIn('&lt;script&gt;', render_report(info, 'test'))
             self.assertNotIn('<script>alert(1)</script>', render_report(info, 'test'))
         self.assertEqual(before, {p.name: p.read_bytes() for p in RAW.glob('*.csv')})
+
+    def test_monthly_run_prefers_immutable_external_snapshot(self):
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(ROOT / 'data/raw', root / 'data/raw')
+            shutil.copytree(ROOT / 'config', root / 'config')
+            (root / 'docs').mkdir()
+            for name in ('analysis_assumptions.json', 'fund_candidates.json', 'data_sources.json', 'handover.md'):
+                shutil.copyfile(ROOT / 'docs' / name, root / 'docs' / name)
+            shutil.copyfile(ROOT / 'sources.yaml', root / 'sources.yaml')
+            shutil.copytree(ROOT / 'cache', root / 'cache')
+
+            first = run(root, month='2026-09', offline=True)
+            first_path = first['external_data']['monthly_snapshot_path']
+            self.assertTrue((root / first_path / 'manifest.json').is_file())
+            with patch('providers.registry.collect_latest', side_effect=AssertionError('monthly snapshot must be preferred')):
+                second = run(root, month='2026-09', offline=False)
+            self.assertEqual(second['external_data']['monthly_snapshot_path'], first_path)
+            self.assertFalse(second['external_data']['fetch_requested'])
+
+            refreshed_collection = {
+                'fetched_at': '2026-09-26T22:00:00+00:00',
+                'fetch_requested': True,
+                'requests_made': 0,
+                'public_records': first['external_data']['records'],
+                'fund_evaluations': first['external_data']['fund_evaluations'],
+                'snapshot_path': None,
+            }
+            with patch('providers.registry.collect_latest', return_value=refreshed_collection):
+                refreshed = run(root, month='2026-09', refresh_external_data=True)
+            self.assertNotEqual(refreshed['external_data']['monthly_snapshot_path'], first_path)
+            self.assertEqual(len(list((root / 'data/market/2026-09-26/revisions').iterdir())), 1)
 
 
 if __name__ == '__main__':

@@ -2,8 +2,8 @@
 from decimal import Decimal, ROUND_HALF_UP
 from html import escape
 from datetime import date
+import json
 
-from analyze_holdings import percentage
 from history_report import (
     goal_projection,
     nisa_lifetime_exhaustion,
@@ -55,6 +55,12 @@ def render_executive_summary(info):
     base_return = required_goal_return(total, snapshot['export_timestamp_inferred'], False, goal)
     raised_return = required_goal_return(total, snapshot['export_timestamp_inferred'], True, goal)
     body += '<p class="notice"><strong>最大の論点：</strong>この積立条件では、35歳で1億円に届く計算上の一定年率は約' + f'{base_return:.2f}%' + '（26歳以降20万円）または約' + f'{raised_return:.2f}%' + '（30歳から25万円）です。「高リターン商品を増やす」だけでなく、積立額と運用期間も併せて検討します。</p>'
+    freshness = info.get('external_data', {}).get('records', [])
+    important = [record for record in freshness if record.get('metric') in {'expense_ratio', 'total_expense_ratio', 'aum', 'holdings', 'benchmark', 'price_history'}]
+    stale_count = sum(record.get('freshness_status') == 'stale' for record in important)
+    unavailable_count = sum(record.get('freshness_status', 'unavailable') == 'unavailable' for record in important)
+    if stale_count or unavailable_count:
+        body += '<p class="notice"><strong>外部データの鮮度：</strong>重要指標 ' + str(stale_count) + '件がstale、' + str(unavailable_count) + '件がunavailableです。現在値の確認が必要な判断は保留し、不足データを推測で補いません。</p>'
     body += '<p class="muted">出発点は投資信託評価額で、銀行残高は含みません。ジュニアNISAを含み、本人への帰属が未確認です。金融資産全体の確定値としては扱いません。</p></section>'
     return body
 
@@ -220,6 +226,14 @@ def render_fund_comparison(info):
     body += '<p>費用と既存PFとの重複はユーザー提供の概算入力です。NISA対象は公式ページで対象表示を確認できた項目だけ記載し、「表示なし」は対象外を意味しません。</p>'
     body += _linked_table(['候補', '役割', 'コスト目安（入力）', 'つみたて投資枠', '成長投資枠', 'NISA内の役割案', '特定口座の扱い案', '確認先'], shortlist_rows)
     body += '<p class="muted">オルカンとS&amp;P500は両枠対象、ニッセイNASDAQ100とTracers S&amp;P1000は成長投資枠対象を各運用会社の商品ページで確認。全世界（除く米国）とGold Hなしはこの確認では枠対象を確定できません。販売会社の取扱・積立設定も購入前に確認してください。</p>'
+    evaluations = {item['fund_id']: item for item in info.get('external_data', {}).get('fund_evaluations', [])}
+    readiness_rows = []
+    for fund in candidate_data['priority_funds']:
+        status = evaluations.get(fund, {'status': 'unavailable', 'missing_or_stale_metrics': ['expense_ratio', 'aum', 'holdings', 'benchmark']})
+        readiness_rows.append([fund, status['status'], ', '.join(status['missing_or_stale_metrics']) or 'なし', '算出しない'])
+    body += '<h3>データ充足度（自動推奨ではなく確認状況）</h3>'
+    body += simple_table(['候補ファンド', 'データ状態', '不足/古い指標', '評価点・推奨'], readiness_rows)
+    body += '<p class="muted">必要データが未取得またはstaleなら、スコアや優劣の推奨は作りません。確認できるファンドだけの平均・合成値も生成しません。</p>'
     body += '<h3>ファンド・ユニバース</h3><p>21件の入力一覧は詳細比較が必要な場合にのみ開けます。重複・分散の評価は未検証メモです。</p><details><summary>候補21本と全評価軸を表示</summary>'
     rows = []
     for item in candidate_data['items']:
@@ -317,6 +331,36 @@ def render_data_methodology(info):
         ['候補コスト・重複', info['fund_candidates']['source_date'], 'ユーザー入力の未検証目安'],
     ])
     body += '<h3>計算と限界</h3><ul><li>取得金額と評価損益は保有明細のみを合算。取得金額は累計入金額ではありません。</li><li>目標試算は月末拠出、一定年率、実効年率を月率へ換算。税・費用・分配・為替を考慮しません。</li><li>資産クラス概算は8資産均等型の基本比率を適用し、その他ファンドを株式として計算。</li><li>NISA利用状況は画面転記、NISA口座の現在残高は保有CSV。現在残高を年間・生涯枠利用額とみなしません。</li><li>現保有ファンドの費用率、正確な地域・銘柄重複、NISA残枠の将来変化は未確認です。</li></ul>'
+    external = info.get('external_data', {})
+    external_rows = []
+    for record in external.get('records', []):
+        value = record.get('value') if record.get('status') == 'available' else None
+        if isinstance(value, list):
+            display_value = f'系列 {len(value)}点' if value else '空系列'
+        else:
+            display_value = json.dumps(value, ensure_ascii=False, separators=(',', ':')) if value is not None else 'unavailable'
+        external_rows.append([
+            record.get('metric', 'unknown'),
+            record.get('subject', 'unknown'),
+            record.get('status', 'unavailable'),
+            display_value,
+            record.get('as_of') or 'unavailable',
+            record.get('fetched_at') or 'unavailable',
+            record.get('expires_at') or 'unavailable',
+            str(record.get('age_days')) + ' days' if record.get('age_days') is not None else 'unavailable',
+            record.get('freshness_status', 'stale' if record.get('stale', True) else 'fresh'),
+            record.get('confidence', 'unrated'),
+            record.get('provider_name', 'unknown'),
+            record.get('source_url') or 'unavailable',
+            record.get('license_status', 'unreviewed'),
+            record.get('report_period') or 'n/a',
+        ])
+    body += '<h3>外部データ取得状況</h3><p>取得は既定で無効です。実行時指定、source registryでの有効化、規約/ライセンス承認、request budgetとinterval、resource、必要なAPI keyがすべて揃った場合のみ取得します。公開許可が不明なraw/derived valueはここに値を出しません。</p>'
+    if external_rows:
+        body += simple_table(['metric', 'subject', 'status', 'value', 'as_of', 'fetched_at', 'expires_at', 'age', 'freshness', 'confidence', 'provider', 'source_url', 'license', 'report_period'], external_rows)
+    else:
+        body += '<p>外部providerのデータ記録はありません。</p>'
+    body += '<p class="muted">availability: ' + str(external.get('available_count', 0)) + ' available / ' + str(external.get('unavailable_count', 0)) + ' unavailable. 公開許可済みの月次snapshotは `data/market/` に保存されGit管理対象外です。raw responseは明示許可がない限り保持しません。</p>'
     body += '<h3>公式資料</h3><ul>'
     for item in diagnosis['sources']:
         body += '<li><a href="' + escape(item['url'], quote=True) + '">' + escape(item['title']) + '</a>（確認日 ' + escape(item['accessed']) + '）</li>'

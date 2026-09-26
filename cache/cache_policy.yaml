@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "zero_is_missing": true,
+  "metric_ttl_days": {
+    "expense_ratio": 30,
+    "total_expense_ratio": 180,
+    "aum": 7,
+    "holdings": 14,
+    "top10_concentration": 14,
+    "fund_flow": 30,
+    "benchmark": 365,
+    "fund_metadata": 365,
+    "nisa_eligibility": 30,
+    "price_history": 1,
+    "pe_ratio": 7,
+    "pb_ratio": 7,
+    "index_region_weights": 30,
+    "index_sector_weights": 30,
+    "trust_fee": 30,
+    "nav": 1,
+    "fed_funds_rate": 1,
+    "treasury_yields": 1,
+    "cpi": 35,
+    "unemployment": 35,
+    "recession_indicators": 35
+  }
+}
