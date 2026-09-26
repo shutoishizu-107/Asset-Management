@@ -596,6 +596,24 @@
       "オール・カントリー": 50000,
       "FANG+": 50000
     },
+    "goal_tracker": {
+      "birth_year": 2003,
+      "birth_month": 1,
+      "target_age": 35,
+      "target_yen": 100000000,
+      "contributions_yen": {
+        "through_age_25": 150000,
+        "age_26_to_29": 200000,
+        "age_30_plus_base": 200000,
+        "age_30_plus_tentative": 250000
+      },
+      "annual_return_scenarios_pct": [
+        0,
+        3,
+        5,
+        7
+      ]
+    },
     "handover_reference": {
       "fund_value_yen": 10592284,
       "fund_gain_yen": 3364133,
@@ -605,8 +623,222 @@
     "projection_note": "引継ぎ文書の積立額を使った配分の機械的試算。既存資産を保有し、新規積立を追加する前提。価格変動・分配金・税・費用は織り込まない。銀行残高を含まない。各口座への振り分けやNISA枠の可否は計算しない。将来の収益予測ではない。",
     "reference_note": "引継ぎ文書の参考値は2026-09-26時点。CSV由来の確認値と区別し、後日のCSVに銀行残高を足し合わせない。"
   },
-  "assumptions_sha256": "3147ae9fe6daeb3659a6c253b0dff114d836d0b3e00d0ccafedba5b3fb43c278",
-  "handover_sha256": "7f4c06d7af28012dc1a7d9f7b5be49f97a232796ba7207eb65005110b4701d6f",
+  "assumptions_sha256": "fd99ca28b556363843810e7f15ecc147cf653b89634d8b90df0ea5eecee90315",
+  "fund_candidates": {
+    "source": "ユーザー提供の比較メモ（ChatGPTで再作成した候補表）",
+    "source_date": "2026-09-26",
+    "status": "costs_and_overlap_estimates_unverified",
+    "status_note": "コスト・重複・分散効果・役割の記載は検討用の入力情報であり、公式資料との照合前の目安。購入判断には最新の交付目論見書と組入情報を確認する。",
+    "priority_funds": [
+      "eMAXIS Slim オルカン",
+      "eMAXIS Slim S&P500",
+      "ニッセイNASDAQ100",
+      "Tracers S&P1000",
+      "SBI・V・全世界（除く米国）",
+      "SBI-iShares Gold Hなし"
+    ],
+    "items": [
+      {
+        "fund": "eMAXIS Slim オルカン",
+        "investment_target": "全世界株",
+        "cost_estimate": "総経費率 約0.07%",
+        "existing_overlap": "―",
+        "diversification": "◎ 地域",
+        "main_role": "基本コア",
+        "consideration": "◎"
+      },
+      {
+        "fund": "eMAXIS Slim S&P500",
+        "investment_target": "米大型株",
+        "cost_estimate": "約0.10%前後",
+        "existing_overlap": "オルカンと高",
+        "diversification": "△",
+        "main_role": "米国オーバーウェイト",
+        "consideration": "○"
+      },
+      {
+        "fund": "iFreeNEXT FANG+",
+        "investment_target": "米大型成長10社",
+        "cost_estimate": "約0.78%",
+        "existing_overlap": "非常に高",
+        "diversification": "×",
+        "main_role": "超集中成長",
+        "consideration": "△"
+      },
+      {
+        "fund": "ニッセイNASDAQ100",
+        "investment_target": "NASDAQ100",
+        "cost_estimate": "約0.21%",
+        "existing_overlap": "高",
+        "diversification": "△",
+        "main_role": "成長株サテライト",
+        "consideration": "○"
+      },
+      {
+        "fund": "eMAXIS NASDAQ100",
+        "investment_target": "NASDAQ100",
+        "cost_estimate": "約0.21%台",
+        "existing_overlap": "高",
+        "diversification": "△",
+        "main_role": "成長株サテライト",
+        "consideration": "△"
+      },
+      {
+        "fund": "eMAXIS Slim 全米株式",
+        "investment_target": "米国全体",
+        "cost_estimate": "低コスト",
+        "existing_overlap": "高",
+        "diversification": "△",
+        "main_role": "S&P500代替",
+        "consideration": "○"
+      },
+      {
+        "fund": "SBI・V・全米株式",
+        "investment_target": "米国ほぼ全市場",
+        "cost_estimate": "0.11%",
+        "existing_overlap": "高",
+        "diversification": "△",
+        "main_role": "S&P500代替",
+        "consideration": "○"
+      },
+      {
+        "fund": "Tracers S&P1000",
+        "investment_target": "米中小型1,000社",
+        "cost_estimate": "信託0.10725%＋ETF等",
+        "existing_overlap": "中",
+        "diversification": "◎",
+        "main_role": "米国内サイズ分散",
+        "consideration": "◎ 候補"
+      },
+      {
+        "fund": "SBI・V・米国小型株",
+        "investment_target": "米小型株",
+        "cost_estimate": "低コスト帯",
+        "existing_overlap": "低～中",
+        "diversification": "○",
+        "main_role": "小型株サテライト",
+        "consideration": "○"
+      },
+      {
+        "fund": "SBI・V・全世界（除く米国）",
+        "investment_target": "非米国世界株",
+        "cost_estimate": "実質信託 0.1534%程度",
+        "existing_overlap": "中",
+        "diversification": "◎",
+        "main_role": "米国偏重補正",
+        "consideration": "◎ 候補"
+      },
+      {
+        "fund": "SBI・V・先進国（除く米国）",
+        "investment_target": "非米先進国",
+        "cost_estimate": "低コスト帯",
+        "existing_overlap": "中",
+        "diversification": "○",
+        "main_role": "米国偏重補正",
+        "consideration": "○"
+      },
+      {
+        "fund": "eMAXIS Slim 新興国",
+        "investment_target": "新興国",
+        "cost_estimate": "約0.2%台",
+        "existing_overlap": "低～中",
+        "diversification": "○",
+        "main_role": "新興国追加",
+        "consideration": "○"
+      },
+      {
+        "fund": "SBI・V・新興国",
+        "investment_target": "新興国",
+        "cost_estimate": "約0.2%台",
+        "existing_overlap": "低～中",
+        "diversification": "○",
+        "main_role": "新興国追加",
+        "consideration": "△"
+      },
+      {
+        "fund": "インド株インデックス系",
+        "investment_target": "インド",
+        "cost_estimate": "商品次第",
+        "existing_overlap": "低",
+        "diversification": "○",
+        "main_role": "高成長国集中",
+        "consideration": "△"
+      },
+      {
+        "fund": "eMAXIS Slim TOPIX",
+        "investment_target": "日本株",
+        "cost_estimate": "約0.15%前後",
+        "existing_overlap": "低～中",
+        "diversification": "○",
+        "main_role": "日本・円資産増加",
+        "consideration": "○"
+      },
+      {
+        "fund": "SBI 読売333",
+        "investment_target": "日本株333社",
+        "cost_estimate": "信託0.132%",
+        "existing_overlap": "低～中",
+        "diversification": "○",
+        "main_role": "日本株別指数",
+        "consideration": "△"
+      },
+      {
+        "fund": "SBI-iShares Gold Hなし",
+        "investment_target": "金",
+        "cost_estimate": "約0.2%前後",
+        "existing_overlap": "ほぼなし",
+        "diversification": "◎",
+        "main_role": "株式外分散",
+        "consideration": "◎ 候補"
+      },
+      {
+        "fund": "SBI-iShares Gold Hあり",
+        "investment_target": "金",
+        "cost_estimate": "約0.2%前後",
+        "existing_overlap": "ほぼなし",
+        "diversification": "◎",
+        "main_role": "為替除去した金",
+        "consideration": "○"
+      },
+      {
+        "fund": "SBI-iShares 全世界債券",
+        "investment_target": "世界債券",
+        "cost_estimate": "約0.14～0.16%",
+        "existing_overlap": "ほぼなし",
+        "diversification": "◎",
+        "main_role": "ボラティリティ低減",
+        "consideration": "○"
+      },
+      {
+        "fund": "EXE-i 全世界REIT",
+        "investment_target": "世界不動産",
+        "cost_estimate": "約0.2%台",
+        "existing_overlap": "低",
+        "diversification": "○",
+        "main_role": "実物資産分散",
+        "consideration": "△"
+      },
+      {
+        "fund": "Tracers S&P500 Top10",
+        "investment_target": "米巨大株10社",
+        "cost_estimate": "0.10725%",
+        "existing_overlap": "極めて高い",
+        "diversification": "×",
+        "main_role": "集中投資",
+        "consideration": "△"
+      }
+    ],
+    "verification_notes": [
+      {
+        "fund": "SBI-iShares 全世界債券",
+        "input_cost_estimate": "約0.14～0.16%",
+        "verified_note": "2026-09-26に確認したSBIアセットマネジメントの費用ページでは、信託報酬年0.0638%に投資先ファンド費用年0.12%程度を加え、実質的な負担は約0.1838%程度。入力値とは一致しないため再確認対象。",
+        "source_url": "https://www.sbiam.co.jp/fund/memo/sa_2013051304.html"
+      }
+    ]
+  },
+  "fund_candidates_sha256": "5ec8ed38949ecaeef2e620b0b7537476d10e130de602ac6c5bc3865b76e18cb0",
+  "handover_sha256": "041a9a34d13bd9d75b4f89ed7a9162ee6135ec5502723ddd52b6c23b51b7725b",
   "snapshot_count": 1,
   "history": {
     "orders": {
@@ -4779,31 +5011,6 @@
         "claim": "制度説明への参照。個人の利用可能枠・年間買付額は本レポートでは確定しない。"
       }
     ],
-    "plans": {
-      "現状継続": {
-        "S&P500系": 50000,
-        "オール・カントリー": 50000,
-        "FANG+": 50000
-      },
-      "推奨案：集中を抑える": {
-        "S&P500系": 45000,
-        "オール・カントリー": 90000,
-        "FANG+": 15000
-      },
-      "比較案：値動きへの配慮": {
-        "S&P500系": 30000,
-        "オール・カントリー": 75000,
-        "FANG+": 15000,
-        "8資産均等型": 30000
-      }
-    },
-    "target_pct": {
-      "S&P500系": 40,
-      "オール・カントリー": 35,
-      "FANG+": 10,
-      "8資産均等型": 15,
-      "インド株": 0
-    },
     "asset_estimate": [
       {
         "name": "株式（概算）",
@@ -4819,488 +5026,6 @@
         "name": "REIT（概算）",
         "value_yen": "721242.00",
         "weight_pct": "6.81"
-      }
-    ],
-    "scenarios": [
-      {
-        "plan": "現状継続",
-        "months": 0,
-        "category": "S&P500系",
-        "value_yen": 5088751,
-        "total_yen": 10592284,
-        "weight_pct": "48.04"
-      },
-      {
-        "plan": "現状継続",
-        "months": 0,
-        "category": "8資産均等型",
-        "value_yen": 2884968,
-        "total_yen": 10592284,
-        "weight_pct": "27.24"
-      },
-      {
-        "plan": "現状継続",
-        "months": 0,
-        "category": "オール・カントリー",
-        "value_yen": 1398387,
-        "total_yen": 10592284,
-        "weight_pct": "13.20"
-      },
-      {
-        "plan": "現状継続",
-        "months": 0,
-        "category": "FANG+",
-        "value_yen": 1172366,
-        "total_yen": 10592284,
-        "weight_pct": "11.07"
-      },
-      {
-        "plan": "現状継続",
-        "months": 0,
-        "category": "インド株",
-        "value_yen": 47812,
-        "total_yen": 10592284,
-        "weight_pct": "0.45"
-      },
-      {
-        "plan": "現状継続",
-        "months": 12,
-        "category": "S&P500系",
-        "value_yen": 5688751,
-        "total_yen": 12392284,
-        "weight_pct": "45.91"
-      },
-      {
-        "plan": "現状継続",
-        "months": 12,
-        "category": "8資産均等型",
-        "value_yen": 2884968,
-        "total_yen": 12392284,
-        "weight_pct": "23.28"
-      },
-      {
-        "plan": "現状継続",
-        "months": 12,
-        "category": "オール・カントリー",
-        "value_yen": 1998387,
-        "total_yen": 12392284,
-        "weight_pct": "16.13"
-      },
-      {
-        "plan": "現状継続",
-        "months": 12,
-        "category": "FANG+",
-        "value_yen": 1772366,
-        "total_yen": 12392284,
-        "weight_pct": "14.30"
-      },
-      {
-        "plan": "現状継続",
-        "months": 12,
-        "category": "インド株",
-        "value_yen": 47812,
-        "total_yen": 12392284,
-        "weight_pct": "0.39"
-      },
-      {
-        "plan": "現状継続",
-        "months": 36,
-        "category": "S&P500系",
-        "value_yen": 6888751,
-        "total_yen": 15992284,
-        "weight_pct": "43.08"
-      },
-      {
-        "plan": "現状継続",
-        "months": 36,
-        "category": "8資産均等型",
-        "value_yen": 2884968,
-        "total_yen": 15992284,
-        "weight_pct": "18.04"
-      },
-      {
-        "plan": "現状継続",
-        "months": 36,
-        "category": "オール・カントリー",
-        "value_yen": 3198387,
-        "total_yen": 15992284,
-        "weight_pct": "20.00"
-      },
-      {
-        "plan": "現状継続",
-        "months": 36,
-        "category": "FANG+",
-        "value_yen": 2972366,
-        "total_yen": 15992284,
-        "weight_pct": "18.59"
-      },
-      {
-        "plan": "現状継続",
-        "months": 36,
-        "category": "インド株",
-        "value_yen": 47812,
-        "total_yen": 15992284,
-        "weight_pct": "0.30"
-      },
-      {
-        "plan": "現状継続",
-        "months": 60,
-        "category": "S&P500系",
-        "value_yen": 8088751,
-        "total_yen": 19592284,
-        "weight_pct": "41.29"
-      },
-      {
-        "plan": "現状継続",
-        "months": 60,
-        "category": "8資産均等型",
-        "value_yen": 2884968,
-        "total_yen": 19592284,
-        "weight_pct": "14.73"
-      },
-      {
-        "plan": "現状継続",
-        "months": 60,
-        "category": "オール・カントリー",
-        "value_yen": 4398387,
-        "total_yen": 19592284,
-        "weight_pct": "22.45"
-      },
-      {
-        "plan": "現状継続",
-        "months": 60,
-        "category": "FANG+",
-        "value_yen": 4172366,
-        "total_yen": 19592284,
-        "weight_pct": "21.30"
-      },
-      {
-        "plan": "現状継続",
-        "months": 60,
-        "category": "インド株",
-        "value_yen": 47812,
-        "total_yen": 19592284,
-        "weight_pct": "0.24"
-      },
-      {
-        "plan": "推奨案：集中を抑える",
-        "months": 0,
-        "category": "S&P500系",
-        "value_yen": 5088751,
-        "total_yen": 10592284,
-        "weight_pct": "48.04"
-      },
-      {
-        "plan": "推奨案：集中を抑える",
-        "months": 0,
-        "category": "8資産均等型",
-        "value_yen": 2884968,
-        "total_yen": 10592284,
-        "weight_pct": "27.24"
-      },
-      {
-        "plan": "推奨案：集中を抑える",
-        "months": 0,
-        "category": "オール・カントリー",
-        "value_yen": 1398387,
-        "total_yen": 10592284,
-        "weight_pct": "13.20"
-      },
-      {
-        "plan": "推奨案：集中を抑える",
-        "months": 0,
-        "category": "FANG+",
-        "value_yen": 1172366,
-        "total_yen": 10592284,
-        "weight_pct": "11.07"
-      },
-      {
-        "plan": "推奨案：集中を抑える",
-        "months": 0,
-        "category": "インド株",
-        "value_yen": 47812,
-        "total_yen": 10592284,
-        "weight_pct": "0.45"
-      },
-      {
-        "plan": "推奨案：集中を抑える",
-        "months": 12,
-        "category": "S&P500系",
-        "value_yen": 5628751,
-        "total_yen": 12392284,
-        "weight_pct": "45.42"
-      },
-      {
-        "plan": "推奨案：集中を抑える",
-        "months": 12,
-        "category": "8資産均等型",
-        "value_yen": 2884968,
-        "total_yen": 12392284,
-        "weight_pct": "23.28"
-      },
-      {
-        "plan": "推奨案：集中を抑える",
-        "months": 12,
-        "category": "オール・カントリー",
-        "value_yen": 2478387,
-        "total_yen": 12392284,
-        "weight_pct": "20.00"
-      },
-      {
-        "plan": "推奨案：集中を抑える",
-        "months": 12,
-        "category": "FANG+",
-        "value_yen": 1352366,
-        "total_yen": 12392284,
-        "weight_pct": "10.91"
-      },
-      {
-        "plan": "推奨案：集中を抑える",
-        "months": 12,
-        "category": "インド株",
-        "value_yen": 47812,
-        "total_yen": 12392284,
-        "weight_pct": "0.39"
-      },
-      {
-        "plan": "推奨案：集中を抑える",
-        "months": 36,
-        "category": "S&P500系",
-        "value_yen": 6708751,
-        "total_yen": 15992284,
-        "weight_pct": "41.95"
-      },
-      {
-        "plan": "推奨案：集中を抑える",
-        "months": 36,
-        "category": "8資産均等型",
-        "value_yen": 2884968,
-        "total_yen": 15992284,
-        "weight_pct": "18.04"
-      },
-      {
-        "plan": "推奨案：集中を抑える",
-        "months": 36,
-        "category": "オール・カントリー",
-        "value_yen": 4638387,
-        "total_yen": 15992284,
-        "weight_pct": "29.00"
-      },
-      {
-        "plan": "推奨案：集中を抑える",
-        "months": 36,
-        "category": "FANG+",
-        "value_yen": 1712366,
-        "total_yen": 15992284,
-        "weight_pct": "10.71"
-      },
-      {
-        "plan": "推奨案：集中を抑える",
-        "months": 36,
-        "category": "インド株",
-        "value_yen": 47812,
-        "total_yen": 15992284,
-        "weight_pct": "0.30"
-      },
-      {
-        "plan": "推奨案：集中を抑える",
-        "months": 60,
-        "category": "S&P500系",
-        "value_yen": 7788751,
-        "total_yen": 19592284,
-        "weight_pct": "39.75"
-      },
-      {
-        "plan": "推奨案：集中を抑える",
-        "months": 60,
-        "category": "8資産均等型",
-        "value_yen": 2884968,
-        "total_yen": 19592284,
-        "weight_pct": "14.73"
-      },
-      {
-        "plan": "推奨案：集中を抑える",
-        "months": 60,
-        "category": "オール・カントリー",
-        "value_yen": 6798387,
-        "total_yen": 19592284,
-        "weight_pct": "34.70"
-      },
-      {
-        "plan": "推奨案：集中を抑える",
-        "months": 60,
-        "category": "FANG+",
-        "value_yen": 2072366,
-        "total_yen": 19592284,
-        "weight_pct": "10.58"
-      },
-      {
-        "plan": "推奨案：集中を抑える",
-        "months": 60,
-        "category": "インド株",
-        "value_yen": 47812,
-        "total_yen": 19592284,
-        "weight_pct": "0.24"
-      },
-      {
-        "plan": "比較案：値動きへの配慮",
-        "months": 0,
-        "category": "S&P500系",
-        "value_yen": 5088751,
-        "total_yen": 10592284,
-        "weight_pct": "48.04"
-      },
-      {
-        "plan": "比較案：値動きへの配慮",
-        "months": 0,
-        "category": "8資産均等型",
-        "value_yen": 2884968,
-        "total_yen": 10592284,
-        "weight_pct": "27.24"
-      },
-      {
-        "plan": "比較案：値動きへの配慮",
-        "months": 0,
-        "category": "オール・カントリー",
-        "value_yen": 1398387,
-        "total_yen": 10592284,
-        "weight_pct": "13.20"
-      },
-      {
-        "plan": "比較案：値動きへの配慮",
-        "months": 0,
-        "category": "FANG+",
-        "value_yen": 1172366,
-        "total_yen": 10592284,
-        "weight_pct": "11.07"
-      },
-      {
-        "plan": "比較案：値動きへの配慮",
-        "months": 0,
-        "category": "インド株",
-        "value_yen": 47812,
-        "total_yen": 10592284,
-        "weight_pct": "0.45"
-      },
-      {
-        "plan": "比較案：値動きへの配慮",
-        "months": 12,
-        "category": "S&P500系",
-        "value_yen": 5448751,
-        "total_yen": 12392284,
-        "weight_pct": "43.97"
-      },
-      {
-        "plan": "比較案：値動きへの配慮",
-        "months": 12,
-        "category": "8資産均等型",
-        "value_yen": 3244968,
-        "total_yen": 12392284,
-        "weight_pct": "26.19"
-      },
-      {
-        "plan": "比較案：値動きへの配慮",
-        "months": 12,
-        "category": "オール・カントリー",
-        "value_yen": 2298387,
-        "total_yen": 12392284,
-        "weight_pct": "18.55"
-      },
-      {
-        "plan": "比較案：値動きへの配慮",
-        "months": 12,
-        "category": "FANG+",
-        "value_yen": 1352366,
-        "total_yen": 12392284,
-        "weight_pct": "10.91"
-      },
-      {
-        "plan": "比較案：値動きへの配慮",
-        "months": 12,
-        "category": "インド株",
-        "value_yen": 47812,
-        "total_yen": 12392284,
-        "weight_pct": "0.39"
-      },
-      {
-        "plan": "比較案：値動きへの配慮",
-        "months": 36,
-        "category": "S&P500系",
-        "value_yen": 6168751,
-        "total_yen": 15992284,
-        "weight_pct": "38.57"
-      },
-      {
-        "plan": "比較案：値動きへの配慮",
-        "months": 36,
-        "category": "8資産均等型",
-        "value_yen": 3964968,
-        "total_yen": 15992284,
-        "weight_pct": "24.79"
-      },
-      {
-        "plan": "比較案：値動きへの配慮",
-        "months": 36,
-        "category": "オール・カントリー",
-        "value_yen": 4098387,
-        "total_yen": 15992284,
-        "weight_pct": "25.63"
-      },
-      {
-        "plan": "比較案：値動きへの配慮",
-        "months": 36,
-        "category": "FANG+",
-        "value_yen": 1712366,
-        "total_yen": 15992284,
-        "weight_pct": "10.71"
-      },
-      {
-        "plan": "比較案：値動きへの配慮",
-        "months": 36,
-        "category": "インド株",
-        "value_yen": 47812,
-        "total_yen": 15992284,
-        "weight_pct": "0.30"
-      },
-      {
-        "plan": "比較案：値動きへの配慮",
-        "months": 60,
-        "category": "S&P500系",
-        "value_yen": 6888751,
-        "total_yen": 19592284,
-        "weight_pct": "35.16"
-      },
-      {
-        "plan": "比較案：値動きへの配慮",
-        "months": 60,
-        "category": "8資産均等型",
-        "value_yen": 4684968,
-        "total_yen": 19592284,
-        "weight_pct": "23.91"
-      },
-      {
-        "plan": "比較案：値動きへの配慮",
-        "months": 60,
-        "category": "オール・カントリー",
-        "value_yen": 5898387,
-        "total_yen": 19592284,
-        "weight_pct": "30.11"
-      },
-      {
-        "plan": "比較案：値動きへの配慮",
-        "months": 60,
-        "category": "FANG+",
-        "value_yen": 2072366,
-        "total_yen": 19592284,
-        "weight_pct": "10.58"
-      },
-      {
-        "plan": "比較案：値動きへの配慮",
-        "months": 60,
-        "category": "インド株",
-        "value_yen": 47812,
-        "total_yen": 19592284,
-        "weight_pct": "0.24"
       }
     ],
     "stress": [
@@ -5342,8 +5067,8 @@
     ],
     "stress_change_yen": -3238632,
     "stress_change_pct": "-30.58",
-    "condition": "生活防衛資金・近い将来の支出を別途確保でき、長期投資を継続できる前提の暫定推奨。家計全体・口座名義・許容損失額は未確認。",
-    "method": "推奨比率は過去リターンの最適化結果ではなく、米国への選好を残しつつFANG+への新規集中を弱める配分判断。インド株の既存分は保有を継続し比率の自然減を許容。"
+    "condition": "生活防衛資金・近い将来の支出を別途確保し、長期投資を継続できるかを配分選択前に確認する。",
+    "method": "目標達成の収益は保証されず、積立額・運用期間・リスク許容度を分けて検討する。"
   },
   "csv_outputs": {
     "holdings": "保有明細_20260926_20260926.csv",
@@ -5355,7 +5080,6 @@
     "executions": "約定履歴整形_20240927_20260926.csv",
     "history_monthly": "注文約定月次集計_20210927_20260926.csv",
     "order_execution_matches": "注文約定照合_20240927_20260926.csv",
-    "unit_bridge": "保有口数照合_20240927_20260926.csv",
-    "portfolio_scenarios": "推奨配分比較試算_20260926_20310926.csv"
+    "unit_bridge": "保有口数照合_20240927_20260926.csv"
   }
 }

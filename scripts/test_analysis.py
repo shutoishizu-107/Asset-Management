@@ -9,6 +9,7 @@ from html.parser import HTMLParser
 
 from analyze_holdings import parse_text, decode_csv, load_snapshot, percentage, integer, compare, contribution_projection, run
 from history_analysis import parse_export, reconcile, analyze_history
+from history_report import goal_projection, required_goal_return
 from reporting import render_report
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -96,6 +97,26 @@ class AnalysisTests(unittest.TestCase):
         self.assertEqual(after['FANG+']['value_yen'], 2072366)
         self.assertEqual(after['FANG+']['weight_pct'], '10.58')
 
+    def test_goal_projection_uses_age_based_contributions(self):
+        goal = {
+            'birth_year': 2003,
+            'birth_month': 1,
+            'target_age': 35,
+            'target_yen': 100000000,
+            'contributions_yen': {
+                'through_age_25': 150000,
+                'age_26_to_29': 200000,
+                'age_30_plus_base': 200000,
+                'age_30_plus_tentative': 250000,
+            },
+        }
+        as_of = '2026-09-26T15:19:45'
+        base = goal_projection(10592284, as_of, 0, False, goal)
+        increased = goal_projection(10592284, as_of, 0, True, goal)
+        self.assertEqual(base, {'value_yen': 36242284, 'contributions_yen': 25650000, 'months': 135})
+        self.assertEqual(increased, {'value_yen': 39242284, 'contributions_yen': 28650000, 'months': 135})
+        self.assertEqual(round(required_goal_return(10592284, as_of, False, goal), 2), 13.68)
+
     def test_comparison_new_and_removed_holdings(self):
         old = copy.deepcopy(self.snapshot)
         new = copy.deepcopy(self.snapshot)
@@ -114,8 +135,12 @@ class AnalysisTests(unittest.TestCase):
             info = run(ROOT, Path(directory))
             report = Path(directory) / 'reports/monthly/資産分析_202609.html'
             html = report.read_text(encoding='utf-8')
-            for text in ('10,592,284', '2,750,000', '今後の推奨ポートフォリオ', '価格変動'):
+            for text in ('10,592,284', '2,750,000', '価格変動', '35歳で1億円', '30歳から月25万円', '案A：成長株を上乗せ', '案B：地域分散', '案C：Gold 10%', '案D：Gold 5%', '候補21本', '全世界（除く米国）', '0.1838%'):
                 self.assertIn(text, html)
+            self.assertNotIn('今後の推奨ポートフォリオ', html)
+            self.assertNotIn('積立案と期間を変更して確認', html)
+            self.assertEqual(len(info['fund_candidates']['items']), 21)
+            self.assertIn('基本コア', html)
             for excluded in ('余力不足', '売却', '未完了注文額', '差引購入額', '純買付口数'):
                 self.assertNotIn(excluded, html)
             self.assertTrue((Path(directory) / 'reports/charts/資産配分_202609.html').is_file())

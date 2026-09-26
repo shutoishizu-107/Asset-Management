@@ -6,6 +6,19 @@
     "オール・カントリー": 50000,
     "FANG+": 50000
   },
+  "goal_tracker": {
+    "birth_year": 2003,
+    "birth_month": 1,
+    "target_age": 35,
+    "target_yen": 100000000,
+    "contributions_yen": {
+      "through_age_25": 150000,
+      "age_26_to_29": 200000,
+      "age_30_plus_base": 200000,
+      "age_30_plus_tentative": 250000
+    },
+    "annual_return_scenarios_pct": [0, 3, 5, 7]
+  },
   "handover_reference": {
     "fund_value_yen": 10592284,
     "fund_gain_yen": 3364133,
