@@ -175,6 +175,7 @@ class AnalysisTests(unittest.TestCase):
                 self.assertNotIn(developer_text, dashboard)
             self.assertNotIn('<script src=', html)
             self.assertNotIn('https://cdn', html)
+            self.assertNotIn('S&amp;amp;P', html)
             HTMLParser().feed(html)
             info['snapshot']['funds'][0]['name'] = '<script>alert(1)</script>'
             self.assertIn('&lt;script&gt;', render_report(info, 'test'))

@@ -263,6 +263,19 @@ class ProviderDataTests(unittest.TestCase):
         self.assertEqual(by_metric['tracking_difference'].status, 'available')
         self.assertEqual(by_metric['tracking_error'].status, 'available')
 
+    def test_unavailable_price_source_reason_propagates_to_derived_metrics(self):
+        source = make_record(
+            metric='price_history', subject='unconfigured', status='unavailable', value=None,
+            as_of=None, freshness_status='unavailable', reason='resource_not_configured',
+            confidence='unavailable', stale=True,
+        )
+
+        derived = derive_price_history_metrics([source])
+
+        self.assertEqual(len(derived), 9)
+        self.assertTrue(all(record.status == 'unavailable' for record in derived))
+        self.assertTrue(all(record.reason == 'resource_not_configured' for record in derived))
+
     def test_holdings_overlap_requires_complete_holdings(self):
         overlap = weighted_portfolio_overlap({'AAA': 0.6, 'BBB': 0.4}, {'AAA': 0.3, 'CCC': 0.7}, complete_a=True, complete_b=True)
         self.assertEqual(overlap['status'], 'available')

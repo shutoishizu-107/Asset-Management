@@ -133,10 +133,10 @@ def render_portfolio_diagnosis(info):
     monthly = assumptions['monthly_contributions_yen']
     body = '<section id="diagnosis"><h2>現在のポートフォリオ診断</h2>'
     rows = [
-        ['集中リスク', 'S&amp;P500系 ' + pct(groups['S&P500系']['weight_pct']) + '、FANG+ ' + pct(groups['FANG+']['weight_pct']) + '。', 'オルカン内の米国大型株も重なる可能性があるが、組入明細がないため重複率・実質米国比率は算出不可。'],
+        ['集中リスク', 'S&P500系 ' + pct(groups['S&P500系']['weight_pct']) + '、FANG+ ' + pct(groups['FANG+']['weight_pct']) + '。', 'オルカン内の米国大型株も重なる可能性があるが、組入明細がないため重複率・実質米国比率は算出不可。'],
         ['分散', '8資産均等型 ' + pct(groups['8資産均等型']['weight_pct']) + '。概算株式 ' + pct(stock['weight_pct']) + '、債券 ' + pct(bonds['weight_pct']) + '、REIT ' + pct(reits['weight_pct']) + '。', '現金と同じ安全資産ではない。基礎配分によるモデル推計。'],
         ['コスト', '現在保有ファンドの信託報酬・総経費率は保有CSVに含まれない。', '確認済みの現行費用比較がないため、候補表の概算値を保有中ファンドへ流用しない。'],
-        ['積立方針', 'S&amp;P500系・オール・カントリー・FANG+に各月' + yen(monthly['S&P500系']) + '円。', '新規積立の3分の1がFANG+に向かう設定。既存残高の比率とは分けて見直す。'],
+        ['積立方針', 'S&P500系・オール・カントリー・FANG+に各月' + yen(monthly['S&P500系']) + '円。', '新規積立の3分の1がFANG+に向かう設定。既存残高の比率とは分けて見直す。'],
     ]
     body += simple_table(['テーマ', '確認できる事実', '分析・未確認事項'], rows)
     body += '<p class="notice">保有額・損益はCSV確認値、株式/債券/REITはモデル概算、重複率・地域比率・現保有商品の確認済み費用は未確認です。これらを同じ確度の数値として扱いません。</p></section>'

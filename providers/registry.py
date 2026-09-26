@@ -116,6 +116,18 @@ def derive_price_history_metrics(records: list[DataRecord]) -> list[DataRecord]:
     for source in records:
         if source.metric != 'price_history':
             continue
+        if source.status != 'available':
+            missing_source = source.reason or 'price_series_unavailable'
+            unavailable_metrics = {
+                metric: {'status': 'unavailable', 'value': None, 'reason': missing_source}
+                for metric in (
+                    'return_1y', 'return_3y_annualized', 'return_5y_annualized',
+                    'annualized_return', 'volatility', 'sharpe_ratio', 'max_drawdown',
+                    'tracking_difference', 'tracking_error',
+                )
+            }
+            result.extend(derived_records(source, unavailable_metrics))
+            continue
         benchmark_name = benchmark_names.get(source.subject)
         benchmark = benchmarks.get(benchmark_name or '') or benchmarks.get(source.subject)
         benchmark_series = benchmark.value if benchmark and benchmark.status == 'available' and not benchmark.stale else None
