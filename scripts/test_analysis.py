@@ -150,6 +150,11 @@ class AnalysisTests(unittest.TestCase):
             for excluded in ('余力不足', '未完了注文額', '差引購入額', '純買付口数'):
                 self.assertNotIn(excluded, html)
             self.assertTrue((Path(directory) / 'reports/charts/資産配分_202609.html').is_file())
+            chart = (Path(directory) / 'reports/charts/資産配分_202609.html').read_text(encoding='utf-8')
+            self.assertIn('href="../../index.html">Dashboard', chart)
+            self.assertIn('href="../index.html">月次レポート一覧', chart)
+            self.assertIn('href="../../index.html">Dashboard', html)
+            self.assertIn('href="../index.html">月次レポート一覧', html)
             index = (Path(directory) / 'reports/index.html').read_text(encoding='utf-8')
             self.assertIn('monthly/資産分析_202609.html', index)
             self.assertIn('charts/資産配分_202609.html', index)
