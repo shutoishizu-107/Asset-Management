@@ -62,19 +62,18 @@ def render_report(info, tag):
     s = info['snapshot']
     from report_sections import (
         render_contribution_plans, render_current_portfolio, render_data_methodology,
-        render_executive_summary, render_existing_assets, render_fund_comparison,
+        render_executive_summary, render_existing_assets,
         render_goal_tracker, render_nisa_strategy, render_portfolio_diagnosis,
         render_portfolio_options, render_risk_scenarios,
     )
     body = header(s, '資産運用分析レポート')
     body += render_executive_summary(info)
-    body += '<nav><a href="../../index.html">Dashboard</a><a href="../index.html">月次レポート一覧</a><a href="#goal">1億円目標</a><a href="#portfolio">現在の保有</a><a href="#diagnosis">診断</a><a href="#nisa">NISA</a><a href="#funds">ファンド候補</a><a href="#portfolio-options">配分案</a><a href="#existing-assets">既存資産</a><a href="#risk">リスク</a><a href="#methodology">計算根拠</a></nav>'
+    body += '<nav><a href="../../index.html">Dashboard</a><a href="../index.html">月次レポート一覧</a><a href="#goal">1億円目標</a><a href="#portfolio">現在の保有</a><a href="#diagnosis">診断</a><a href="#nisa">NISA</a><a href="#portfolio-options">配分案</a><a href="#contributions">積立額</a><a href="#existing-assets">既存資産</a><a href="#risk">リスク</a><a href="#methodology">計算根拠</a></nav>'
     body += render_goal_tracker(info)
     body += render_current_portfolio(info)
     body += render_portfolio_diagnosis(info)
     body += render_nisa_strategy(info)
-    body += render_fund_comparison(info)
-    body += render_portfolio_options()
+    body += render_portfolio_options(info)
     body += render_contribution_plans(info)
     body += render_existing_assets(info)
     body += render_risk_scenarios(info)

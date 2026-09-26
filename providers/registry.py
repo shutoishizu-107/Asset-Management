@@ -10,13 +10,14 @@ from .alpha_vantage import AlphaVantageProvider
 from .avantis import AvantisProvider
 from .collector import ProviderCollector
 from .etf_com import EtfComProvider
-from .evaluation import derive_portfolio_overlaps, evaluate_funds
+from .evaluation import derive_holdings_summary_metrics, derive_named_overlap_metrics, evaluate_funds
 from .fred import FredProvider
 from .fund_flow import FundFlowProvider
 from .index_provider import FtseRussellProvider, IndexProvider, MsciProvider, NasdaqIndexesProvider, SpGlobalProvider
 from .invesco import InvescoProvider
 from .ishares import IsharesProvider
 from .models import DataRecord, public_projection
+from .metrics import calculate_price_metrics, derived_records
 from .morningstar import MorningstarProvider
 from .mutual_fund_jp import JapaneseMutualFundProvider
 from .nasdaq_data_link import NasdaqDataLinkProvider
@@ -95,6 +96,45 @@ def load_dotenv(path: Path, environ: dict[str, str] | None = None) -> dict[str, 
     return result
 
 
+def derive_price_history_metrics(records: list[DataRecord]) -> list[DataRecord]:
+    benchmarks = {
+        record.subject: record
+        for record in records
+        if record.metric == 'benchmark_price_history'
+    }
+    benchmark_names = {
+        record.subject: str(record.value)
+        for record in records
+        if record.metric == 'benchmark' and record.status == 'available'
+    }
+    risk_free_rates = {
+        record.subject: record
+        for record in records
+        if record.metric == 'risk_free_rate'
+    }
+    result = []
+    for source in records:
+        if source.metric != 'price_history':
+            continue
+        benchmark_name = benchmark_names.get(source.subject)
+        benchmark = benchmarks.get(benchmark_name or '') or benchmarks.get(source.subject)
+        benchmark_series = benchmark.value if benchmark and benchmark.status == 'available' and not benchmark.stale else None
+        risk_free = risk_free_rates.get(source.subject) or risk_free_rates.get('GLOBAL')
+        risk_free_annual = None
+        if risk_free and risk_free.status == 'available' and not risk_free.stale:
+            try:
+                risk_free_annual = float(risk_free.value)
+                if risk_free.unit in {'percent', 'percentage'}:
+                    risk_free_annual /= 100
+                elif risk_free.unit not in {'fraction', 'annual_fraction', 'decimal'}:
+                    risk_free_annual = None
+            except (TypeError, ValueError):
+                risk_free_annual = None
+        calculated = calculate_price_metrics(source.value, risk_free_annual, benchmark_series)
+        result.extend(derived_records(source, calculated))
+    return result
+
+
 def collect_latest(
     root: Path,
     fetch_enabled: bool | None = None,
@@ -102,6 +142,7 @@ def collect_latest(
     *,
     offline: bool = False,
     force_refresh: bool = False,
+    portfolio_weights: dict[str, int | float] | None = None,
 ) -> dict[str, Any]:
     """Cache-first collection. Legacy fetch_enabled=False remains an offline alias."""
     if fetch_enabled is not None:
@@ -115,13 +156,29 @@ def collect_latest(
     config = load_registry(root / 'sources.yaml')
     collector = ProviderCollector(root, config, ADAPTERS, offline=offline, force_refresh=force_refresh, persist_cache=persist)
     records = collector.collect()
-    candidate_path = root / 'docs/fund_candidates.json'
-    try:
-        fund_candidates = json.loads(candidate_path.read_text(encoding='utf-8-sig'))
-        fund_ids = [item['fund'] for item in fund_candidates.get('items', [])]
-    except (OSError, json.JSONDecodeError, KeyError, TypeError):
-        fund_ids = []
-    records.extend(derive_portfolio_overlaps(records, fund_ids))
+    records.extend(derive_price_history_metrics(records))
+    fund_metric_names = {
+        'expense_ratio', 'total_expense_ratio', 'aum', 'fund_flow_1m', 'fund_flow_1y',
+        'fund_name', 'ticker', 'asset_class', 'role_category', 'benchmark', 'inception_date', 'currency',
+        'number_of_holdings', 'top10_concentration',
+        'us_weight', 'tech_weight', 'small_cap_weight', 'value_exposure', 'growth_exposure',
+        'nisa_tsumitate_eligible', 'nisa_growth_eligible', 'sbi_available', 'domestic_alternative',
+        'holdings', 'price_history', 'nav',
+    }
+    api_fund_ids = sorted({
+        record.subject
+        for record in records
+        if record.metric in fund_metric_names
+        and record.subject not in {'', 'unconfigured'}
+        and record.provider_id != 'analysis_engine'
+    })
+    records.extend(derive_holdings_summary_metrics(records, api_fund_ids))
+    records.extend(derive_named_overlap_metrics(
+        records,
+        api_fund_ids,
+        config.get('portfolio_overlap_references', {}),
+        portfolio_weights,
+    ))
     projected = public_projection(records)
     return {
         'fetched_at': collector.finished_at,
@@ -129,6 +186,7 @@ def collect_latest(
         'requests_made': collector.request_count,
         'records': [record.to_dict() for record in records],
         'public_records': projected,
-        'fund_evaluations': evaluate_funds(fund_ids, projected),
+        'fund_evaluations': evaluate_funds(api_fund_ids, projected),
+        'metric_priority_level': config.get('metric_priority_level', {}),
         'snapshot_path': None,
     }

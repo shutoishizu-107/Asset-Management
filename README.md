@@ -24,7 +24,6 @@
 | 前回の保有状況CSV | 前回比較を出す場合に必要。過去の保有CSVをrawに残す | 同上。最新と直前の2時点を自動比較 |
 | プロフィール・目標条件 | 生年月、目標額・年齢、年齢別積立額 | `config/profile.json`, `config/goals.json` |
 | 現在の積立設定・NISA画面値 | 商品別の月額、年間/生涯枠の使用額・残額、画面確認日 | `docs/analysis_assumptions.json` |
-| ファンド候補比較の入力 | 候補商品、コスト目安、既存PFとの重複、分散効果、役割、検討位置。未検証の入力値は確認値と区別 | `docs/fund_candidates.json` |
 | 元ファイルの出典情報 | 元名、取得したファイルのSHA-256、対象期間、確認できる出力日時 | `docs/data_sources.json` |
 
 保有状況の開始日と終了日は同じ出力日です。履歴の日付はCSV本文の検索期間と一致させます。履歴は画面の一部だけでなく、選択期間の全明細を出力してください。文字コードはUTF-8（BOMあり・なし）とCP932に対応します。
@@ -91,7 +90,7 @@ python -B -m unittest discover -s scripts -p 'test_*.py' -v
 
 - 現在の積立設定とSBI画面のNISA使用額は `docs/analysis_assumptions.json` に記録します。画像自体がプロジェクトにない場合は転記元と画面日を記し、残枠を履歴から再構築しません。
 - 生年月は `config/profile.json`、1億円の目標と年齢別積立・リターンシナリオは `config/goals.json` に保存します。
-- ファンド候補のコスト・重複・分散効果は `docs/fund_candidates.json` で入力情報と公式確認値を区別します。NISA対象枠・販売会社の取扱は商品ごとに確認します。
+- 旧ファンド候補の入力メモは `docs/old_fund_candidates.json` にアーカイブしています。現在の推奨候補には使用せず、API metricの実データとジャンル配分を別々に扱います。
 
 ## External Data Providers
 
@@ -175,7 +174,7 @@ asset-management/
 └─ docs/
   ├─ handover.md            # 背景・現状・未確認事項
   ├─ analysis_assumptions.json # 現在設定・NISA画面転記
-  ├─ fund_candidates.json   # 候補ファンド比較の入力
+  ├─ old_fund_candidates.json # 旧21件比較メモ（レポート・推奨には未使用）
   ├─ external-data-policy.md # provider・license・publication policy
   └─ data_sources.json      # 元ファイル出典・SHA-256
 ```

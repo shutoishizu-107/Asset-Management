@@ -40,6 +40,36 @@ def _annualized_return(points: list[tuple[date, float]]) -> float:
     return (points[-1][1] / points[0][1]) ** (1 / years) - 1
 
 
+def _window_return(points: list[tuple[date, float]], years: int, annualized: bool) -> dict[str, Any]:
+    end_date, end_value = points[-1]
+    try:
+        start_date = end_date.replace(year=end_date.year - years)
+    except ValueError:
+        start_date = end_date.replace(year=end_date.year - years, day=28)
+    eligible = [(day, value) for day, value in points if day <= start_date]
+    if not eligible:
+        return {'status': 'unavailable', 'value': None, 'reason': f'insufficient_{years}y_price_history'}
+    start_day, start_value = eligible[-1]
+    if (start_date - start_day).days > 92:
+        return {'status': 'unavailable', 'value': None, 'reason': f'insufficient_{years}y_price_history'}
+    elapsed_days = (end_date - start_day).days
+    if elapsed_days < years * 365:
+        return {'status': 'unavailable', 'value': None, 'reason': f'insufficient_{years}y_price_history'}
+    value = end_value / start_value - 1
+    if annualized:
+        value = (end_value / start_value) ** (365.2425 / elapsed_days) - 1
+    return {'status': 'available', 'value': value, 'unit': 'fraction', 'period_years': years}
+
+
+def _unavailable_price_metrics(reason: str) -> dict[str, dict[str, Any]]:
+    metric_names = (
+        'return_1y', 'return_3y_annualized', 'return_5y_annualized',
+        'annualized_return', 'volatility', 'sharpe_ratio', 'max_drawdown',
+        'tracking_difference', 'tracking_error',
+    )
+    return {metric: {'status': 'unavailable', 'value': None, 'reason': reason} for metric in metric_names}
+
+
 def calculate_price_metrics(
     price_series: Any,
     risk_free_annual: float | None = None,
@@ -53,9 +83,7 @@ def calculate_price_metrics(
         points = _price_points(price_series)
     except ValueError as error:
         reason = str(error)
-        return {metric: {'status': 'unavailable', 'value': None, 'reason': reason} for metric in (
-            'annualized_return', 'volatility', 'sharpe_ratio', 'max_drawdown', 'tracking_difference'
-        )}
+        return _unavailable_price_metrics(reason)
     returns = [current[1] / previous[1] - 1 for previous, current in zip(points, points[1:])]
     elapsed_days = (points[-1][0] - points[0][0]).days
     mean_interval = elapsed_days / (len(points) - 1)
@@ -67,6 +95,9 @@ def calculate_price_metrics(
         peak = max(peak, price)
         maximum_drawdown = min(maximum_drawdown, price / peak - 1)
     result = {
+        'return_1y': _window_return(points, 1, annualized=False),
+        'return_3y_annualized': _window_return(points, 3, annualized=True),
+        'return_5y_annualized': _window_return(points, 5, annualized=True),
         'annualized_return': {'status': 'available', 'value': _annualized_return(points), 'unit': 'fraction'},
         'volatility': ({'status': 'available', 'value': volatility, 'unit': 'fraction'} if volatility is not None else
                        {'status': 'unavailable', 'value': None, 'reason': 'insufficient_returns_for_sample_volatility'}),
@@ -84,6 +115,7 @@ def calculate_price_metrics(
         result['sharpe_ratio'] = {'status': 'available', 'value': (average_return - periodic_rf) * periods_per_year / volatility, 'unit': 'ratio'}
     if benchmark_series is None:
         result['tracking_difference'] = {'status': 'unavailable', 'value': None, 'reason': 'benchmark_series_unavailable'}
+        result['tracking_error'] = {'status': 'unavailable', 'value': None, 'reason': 'benchmark_series_unavailable'}
     else:
         try:
             benchmark = _price_points(benchmark_series)
@@ -94,13 +126,28 @@ def calculate_price_metrics(
                 raise ValueError('insufficient_aligned_benchmark_observations')
             aligned_strategy = [(day, strategy_by_date[day]) for day in shared_dates]
             aligned_benchmark = [(day, benchmark_by_date[day]) for day in shared_dates]
+            strategy_returns = [current[1] / previous[1] - 1 for previous, current in zip(aligned_strategy, aligned_strategy[1:])]
+            benchmark_returns = [current[1] / previous[1] - 1 for previous, current in zip(aligned_benchmark, aligned_benchmark[1:])]
+            active_returns = [strategy - benchmark for strategy, benchmark in zip(strategy_returns, benchmark_returns)]
+            aligned_elapsed = (shared_dates[-1] - shared_dates[0]).days
+            aligned_mean_interval = aligned_elapsed / (len(shared_dates) - 1)
+            aligned_periods_per_year = 365.2425 / aligned_mean_interval
             result['tracking_difference'] = {
                 'status': 'available',
                 'value': _annualized_return(aligned_strategy) - _annualized_return(aligned_benchmark),
                 'unit': 'fraction_annualized_return_difference',
             }
+            if len(active_returns) < 2:
+                result['tracking_error'] = {'status': 'unavailable', 'value': None, 'reason': 'insufficient_aligned_returns_for_tracking_error'}
+            else:
+                result['tracking_error'] = {
+                    'status': 'available',
+                    'value': statistics.stdev(active_returns) * math.sqrt(aligned_periods_per_year),
+                    'unit': 'fraction_annualized',
+                }
         except ValueError as error:
             result['tracking_difference'] = {'status': 'unavailable', 'value': None, 'reason': str(error)}
+            result['tracking_error'] = {'status': 'unavailable', 'value': None, 'reason': str(error)}
     return result
 
 

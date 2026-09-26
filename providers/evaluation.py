@@ -3,11 +3,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from .metrics import weighted_portfolio_overlap
+from .metrics import derived_records, weighted_portfolio_overlap
 from .models import DataRecord, utc_now
 
 
-REQUIRED_FUND_METRICS = ('expense_ratio', 'aum', 'holdings', 'benchmark')
+REQUIRED_FUND_METRICS = (
+    'expense_ratio', 'total_expense_ratio', 'aum', 'fund_flow_1y', 'benchmark', 'holdings',
+    'number_of_holdings', 'top10_concentration', 'us_weight', 'tech_weight', 'small_cap_weight',
+    'nisa_tsumitate_eligible', 'nisa_growth_eligible',
+)
 
 
 def evaluate_fund_readiness(fund_id: str, records: list[dict[str, Any]]) -> dict[str, Any]:
@@ -102,4 +106,173 @@ def derive_portfolio_overlaps(source_records: list[DataRecord], fund_ids: list[s
                 reason=reason,
                 age_days=provider.age_days if provider and reason is None else None,
             ))
+    return result
+
+
+def _complete_holdings(records: list[DataRecord], subject: str) -> tuple[dict[str, float] | None, DataRecord | None, str | None]:
+    matches = [item for item in records if item.metric == 'holdings' and item.subject == subject and item.status == 'available']
+    if not matches:
+        return None, None, 'holdings_unavailable'
+    if len({(item.provider_id, item.as_of, item.source_url) for item in matches}) != 1:
+        return None, matches[0], 'holdings_source_or_as_of_mismatch'
+    if any(item.stale for item in matches):
+        return None, matches[0], 'holdings_stale'
+    if any(not isinstance(item.value, dict) or item.value.get('complete') is not True for item in matches):
+        return None, matches[0], 'holdings_not_complete'
+    weights = {}
+    for item in matches:
+        try:
+            security_id = str(item.value['security_id'])
+            weight = float(item.value['weight'])
+        except (KeyError, TypeError, ValueError):
+            return None, matches[0], 'invalid_holding_weight'
+        if not security_id or not 0 <= weight <= 1 or security_id in weights:
+            return None, matches[0], 'invalid_holding_weight'
+        weights[security_id] = weight
+    if not weights or abs(sum(weights.values()) - 1.0) > 0.02:
+        return None, matches[0], 'holdings_weights_not_complete'
+    return weights, matches[0], None
+
+
+def _weighted_current_portfolio(
+    records: list[DataRecord], portfolio_weights: dict[str, float]
+) -> tuple[dict[str, float] | None, DataRecord | None, str | None]:
+    positive_positions = {subject: value for subject, value in portfolio_weights.items() if value > 0}
+    if not positive_positions or any(value < 0 for value in portfolio_weights.values()):
+        return None, None, 'current_portfolio_holdings_unavailable'
+    total_value = sum(positive_positions.values())
+    aggregated: dict[str, float] = {}
+    evidence = []
+    for subject, position_value in positive_positions.items():
+        weights, source, reason = _complete_holdings(records, subject)
+        if reason or weights is None or source is None:
+            return None, source, f'current_portfolio_{reason or "holdings_unavailable"}'
+        evidence.append(source)
+        portfolio_share = position_value / total_value
+        for security_id, weight in weights.items():
+            aggregated[security_id] = aggregated.get(security_id, 0.0) + portfolio_share * weight
+    if len({(item.provider_id, item.source_url, item.as_of) for item in evidence}) != 1:
+        return None, evidence[0] if evidence else None, 'current_portfolio_holdings_source_or_as_of_mismatch'
+    return aggregated, evidence[0] if evidence else None, None
+
+
+def derive_named_overlap_metrics(
+    source_records: list[DataRecord],
+    candidate_ids: list[str],
+    reference_subjects: dict[str, str],
+    portfolio_weights: dict[str, float] | None = None,
+) -> list[DataRecord]:
+    """Create named overlap metrics only from complete, fresh, date-aligned holdings."""
+    reference_metrics = {
+        'overlap_with_sp500': reference_subjects.get('overlap_with_sp500'),
+        'overlap_with_fang': reference_subjects.get('overlap_with_fang'),
+        'overlap_with_all_country': reference_subjects.get('overlap_with_all_country'),
+    }
+    current_map = None
+    current_source = None
+    current_reason = 'current_portfolio_holdings_unavailable'
+    if portfolio_weights is not None:
+        current_map, current_source, current_reason = _weighted_current_portfolio(source_records, portfolio_weights)
+
+    result = []
+    for candidate_id in candidate_ids:
+        candidate_map, candidate_source, candidate_reason = _complete_holdings(source_records, candidate_id)
+        for metric, reference_id in reference_metrics.items():
+            reference_map, reference_source, reference_reason = _complete_holdings(source_records, reference_id) if reference_id else (None, None, 'reference_not_configured')
+            reason = candidate_reason or reference_reason
+            if reason is None and candidate_source and reference_source and (
+                candidate_source.provider_id, candidate_source.source_url, candidate_source.as_of
+            ) != (
+                reference_source.provider_id, reference_source.source_url, reference_source.as_of
+            ):
+                reason = 'holdings_source_or_as_of_mismatch'
+            outcome = None
+            if reason is None:
+                outcome = weighted_portfolio_overlap(candidate_map, reference_map, complete_a=True, complete_b=True)
+                if outcome['status'] != 'available':
+                    reason = outcome['reason']
+
+            evidence = candidate_source or reference_source
+            result.append(_overlap_record(metric, candidate_id, outcome, reason, evidence, [candidate_source, reference_source]))
+
+        reason = candidate_reason or current_reason
+        if reason is None and candidate_source and current_source and (
+            candidate_source.provider_id, candidate_source.source_url, candidate_source.as_of
+        ) != (
+            current_source.provider_id, current_source.source_url, current_source.as_of
+        ):
+            reason = 'holdings_source_or_as_of_mismatch'
+        outcome = None
+        evidence = candidate_source or current_source
+        evidence_records = [candidate_source, current_source]
+        if reason is None:
+            outcome = weighted_portfolio_overlap(candidate_map, current_map, complete_a=True, complete_b=True)
+            if outcome['status'] != 'available':
+                reason = outcome['reason']
+        result.append(_overlap_record('overlap_with_current_portfolio', candidate_id, outcome, reason, evidence, evidence_records))
+    return result
+
+
+def _overlap_record(
+    metric: str,
+    subject: str,
+    outcome: dict[str, Any] | None,
+    reason: str | None,
+    evidence: DataRecord | None,
+    evidence_records: list[DataRecord | None],
+) -> DataRecord:
+    available = reason is None and outcome is not None and outcome.get('status') == 'available' and evidence is not None
+    return DataRecord(
+        schema_version=1,
+        provider_id='analysis_engine',
+        provider_name='Local analysis engine',
+        metric=metric,
+        subject=subject,
+        status='available' if available else 'unavailable',
+        value=outcome['value'] if available else None,
+        unit='fraction_of_portfolio' if available else None,
+        source_name=evidence.source_name if evidence else 'unavailable',
+        source_url=evidence.source_url if evidence else None,
+        fetched_at=utc_now(),
+        as_of=evidence.as_of if available and evidence else None,
+        expires_at=evidence.expires_at if available and evidence else None,
+        report_period=evidence.report_period if evidence else None,
+        stale=not available or bool(evidence and evidence.stale),
+        freshness_status=evidence.freshness_status if available and evidence else 'unavailable',
+        confidence=evidence.confidence if available and evidence else 'unavailable',
+        license_status=evidence.license_status if evidence else 'unreviewed',
+        cache_allowed=all(item.cache_allowed is True for item in evidence_records if item is not None) if available else False,
+        redistribution_allowed=evidence.redistribution_allowed if evidence else 'verify',
+        raw_data_publication_allowed=False,
+        derived_data_publication_allowed=all(item.derived_data_publication_allowed is True for item in evidence_records if item is not None) if available else False,
+        data_class='derived',
+        data_origin=evidence.data_origin if evidence else 'unknown',
+        source_role='primary',
+        reason=None if available else (reason or 'overlap_unavailable'),
+        age_days=evidence.age_days if available and evidence else None,
+    )
+
+
+def derive_holdings_summary_metrics(source_records: list[DataRecord], fund_ids: list[str]) -> list[DataRecord]:
+    """Derive holding count and top-10 weight only from complete holdings snapshots."""
+    result = []
+    for fund_id in fund_ids:
+        weights, source, reason = _complete_holdings(source_records, fund_id)
+        if source is None:
+            continue
+        if reason or weights is None:
+            outcomes = {
+                metric: {'status': 'unavailable', 'value': None, 'reason': reason or 'holdings_unavailable'}
+                for metric in ('number_of_holdings', 'top10_concentration')
+            }
+        else:
+            outcomes = {
+                'number_of_holdings': {'status': 'available', 'value': len(weights), 'unit': 'count'},
+                'top10_concentration': {
+                    'status': 'available',
+                    'value': sum(sorted(weights.values(), reverse=True)[:10]),
+                    'unit': 'fraction',
+                },
+            }
+        result.extend(derived_records(source, outcomes))
     return result

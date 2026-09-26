@@ -11,10 +11,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from providers.base import ConfiguredStructuredProvider, ProviderError, validate_safe_source_url
-from providers.evaluation import derive_portfolio_overlaps, evaluate_fund_readiness
+from providers.evaluation import REQUIRED_FUND_METRICS, derive_holdings_summary_metrics, derive_named_overlap_metrics, derive_portfolio_overlaps, evaluate_fund_readiness
 from providers.metrics import calculate_price_metrics, weighted_portfolio_overlap
 from providers.models import DataRecord, public_projection
-from providers.registry import ADAPTERS, collect_latest, load_registry
+from providers.registry import ADAPTERS, collect_latest, derive_price_history_metrics, load_registry
 from providers.base import Observation
 from providers.yahoo_finance import YahooFinanceDevelopmentProvider
 
@@ -58,7 +58,6 @@ class ProviderDataTests(unittest.TestCase):
         (root / 'cache').mkdir(exist_ok=True)
         shutil.copyfile(ROOT / 'sources.yaml', root / 'sources.yaml')
         shutil.copyfile(ROOT / 'cache/cache_policy.yaml', root / 'cache/cache_policy.yaml')
-        shutil.copyfile(ROOT / 'docs/fund_candidates.json', root / 'docs/fund_candidates.json')
 
     def test_registry_has_candidates_but_defaults_to_disabled_and_unreviewed(self):
         registry = load_registry(ROOT / 'sources.yaml')
@@ -71,6 +70,9 @@ class ProviderDataTests(unittest.TestCase):
             self.assertIn('rate_limit_review_status', provider)
         self.assertIn('nisa_eligibility', registry['metric_priority'])
         self.assertEqual(registry['metric_priority']['total_expense_ratio'], ['mutual_fund_jp'])
+        self.assertEqual(registry['metric_priority_level']['fund_flow_1m'], 'medium')
+        self.assertEqual(registry['metric_priority_level']['top10_concentration'], 'high')
+        self.assertEqual(registry['metric_priority_level']['value_exposure'], 'medium')
 
     def test_default_collection_is_offline_and_saves_unavailable_snapshot(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -89,7 +91,6 @@ class ProviderDataTests(unittest.TestCase):
             root = Path(directory)
             (root / 'docs').mkdir()
             (root / 'cache').mkdir()
-            shutil.copyfile(ROOT / 'docs/fund_candidates.json', root / 'docs/fund_candidates.json')
             shutil.copyfile(ROOT / 'cache/cache_policy.yaml', root / 'cache/cache_policy.yaml')
             registry = json.loads((ROOT / 'sources.yaml').read_text(encoding='utf-8'))
             registry['metric_priority'] = {'expense_ratio': ['vanguard']}
@@ -192,6 +193,7 @@ class ProviderDataTests(unittest.TestCase):
                 result = collect_latest(root, fetch_enabled=True, persist=False)
             self.assertEqual(mock_provider.calls, 1)
             self.assertTrue(any(record.get('reason') == 'request_budget_exceeded' for record in result['records']))
+            self.assertEqual({item['fund_id'] for item in result['fund_evaluations']}, {'TEST-A', 'TEST-B'})
 
     def test_source_urls_require_https_and_reject_embedded_credentials(self):
         with self.assertRaisesRegex(ProviderError, 'https_url_required'):
@@ -221,9 +223,45 @@ class ProviderDataTests(unittest.TestCase):
         metrics = calculate_price_metrics(series)
         self.assertEqual(metrics['annualized_return']['status'], 'available')
         self.assertEqual(metrics['max_drawdown']['value'], -0.25)
+        self.assertEqual(metrics['return_3y_annualized']['status'], 'unavailable')
+        self.assertEqual(metrics['return_5y_annualized']['status'], 'unavailable')
         self.assertEqual(metrics['sharpe_ratio']['reason'], 'risk_free_series_unavailable')
         self.assertEqual(metrics['tracking_difference']['reason'], 'benchmark_series_unavailable')
         self.assertEqual(calculate_price_metrics(None)['annualized_return']['status'], 'unavailable')
+
+    def test_period_returns_and_tracking_error_require_aligned_history(self):
+        series = [
+            {'date': f'{year}-01-01', 'value': 100 * (1.1 ** (year - 2020))}
+            for year in range(2020, 2026)
+        ]
+        benchmark = [
+            {'date': f'{year}-01-01', 'value': 100 * (1.05 ** (year - 2020))}
+            for year in range(2020, 2026)
+        ]
+        metrics = calculate_price_metrics(series, risk_free_annual=0.02, benchmark_series=benchmark)
+        self.assertAlmostEqual(metrics['return_1y']['value'], 0.1, places=6)
+        self.assertAlmostEqual(metrics['return_3y_annualized']['value'], 0.1, places=4)
+        self.assertAlmostEqual(metrics['return_5y_annualized']['value'], 0.1, places=4)
+        self.assertEqual(metrics['tracking_difference']['status'], 'available')
+        self.assertEqual(metrics['tracking_error']['status'], 'available')
+
+    def test_price_history_is_emitted_as_derived_metric_records(self):
+        series = [
+            {'date': f'{year}-01-01', 'value': 100 * (1.1 ** (year - 2020))}
+            for year in range(2020, 2026)
+        ]
+        source = make_record(metric='price_history', subject='FUND-A', value=series, as_of='2025-01-01')
+        benchmark = make_record(metric='benchmark_price_history', subject='FUND-A', value=series, as_of='2025-01-01')
+        risk_free = make_record(metric='risk_free_rate', subject='FUND-A', value=0.02, unit='fraction', as_of='2025-01-01')
+
+        derived = derive_price_history_metrics([source, benchmark, risk_free])
+        by_metric = {record.metric: record for record in derived}
+        self.assertEqual(by_metric['return_1y'].status, 'available')
+        self.assertEqual(by_metric['return_3y_annualized'].status, 'available')
+        self.assertEqual(by_metric['return_5y_annualized'].status, 'available')
+        self.assertEqual(by_metric['sharpe_ratio'].status, 'available')
+        self.assertEqual(by_metric['tracking_difference'].status, 'available')
+        self.assertEqual(by_metric['tracking_error'].status, 'available')
 
     def test_holdings_overlap_requires_complete_holdings(self):
         overlap = weighted_portfolio_overlap({'AAA': 0.6, 'BBB': 0.4}, {'AAA': 0.3, 'CCC': 0.7}, complete_a=True, complete_b=True)
@@ -249,12 +287,59 @@ class ProviderDataTests(unittest.TestCase):
         mismatch = derive_portfolio_overlaps([source_a, source_b, date_mismatch_record], ['FUND-A', 'FUND-B'])[0]
         self.assertEqual(mismatch.reason, 'holdings_source_or_as_of_mismatch')
 
+    def test_named_overlaps_cover_reference_funds_and_weighted_current_portfolio(self):
+        def holding(subject, security_id, weight):
+            return make_record(
+                metric='holdings', subject=subject,
+                value={'security_id': security_id, 'weight': str(weight), 'complete': True},
+                unit='fraction',
+            )
+
+        records = [
+            holding('CANDIDATE', 'AAA', 0.6), holding('CANDIDATE', 'BBB', 0.4),
+            holding('SP500', 'AAA', 0.3), holding('SP500', 'CCC', 0.7),
+            holding('FANG', 'AAA', 0.5), holding('FANG', 'BBB', 0.5),
+            holding('ALL_COUNTRY', 'BBB', 0.7), holding('ALL_COUNTRY', 'CCC', 0.3),
+            holding('CURRENT_A', 'AAA', 1.0), holding('CURRENT_B', 'BBB', 1.0),
+        ]
+        metrics = derive_named_overlap_metrics(
+            records,
+            ['CANDIDATE'],
+            {
+                'overlap_with_sp500': 'SP500',
+                'overlap_with_fang': 'FANG',
+                'overlap_with_all_country': 'ALL_COUNTRY',
+            },
+            {'CURRENT_A': 100, 'CURRENT_B': 100},
+        )
+        by_metric = {record.metric: record for record in metrics}
+        self.assertEqual(by_metric['overlap_with_sp500'].value, 0.3)
+        self.assertEqual(by_metric['overlap_with_fang'].value, 0.9)
+        self.assertEqual(by_metric['overlap_with_all_country'].value, 0.4)
+        self.assertEqual(by_metric['overlap_with_current_portfolio'].value, 0.9)
+
+        missing = derive_named_overlap_metrics(records, ['CANDIDATE'], {}, None)
+        current_overlap = next(record for record in missing if record.metric == 'overlap_with_current_portfolio')
+        self.assertEqual(current_overlap.status, 'unavailable')
+
     def test_fund_readiness_never_scores_missing_or_stale_inputs(self):
         result = evaluate_fund_readiness('FUND-A', [])
         self.assertEqual(result['status'], 'unavailable')
         self.assertIsNone(result['score'])
         self.assertIsNone(result['recommendation'])
-        self.assertEqual(len(result['missing_or_stale_metrics']), 4)
+        self.assertEqual(len(result['missing_or_stale_metrics']), len(REQUIRED_FUND_METRICS))
+
+    def test_complete_holdings_derive_count_and_top10_concentration(self):
+        holdings = [
+            make_record(metric='holdings', subject='FUND-A', value={
+                'security_id': f'SEC-{index}', 'weight': str(weight), 'complete': True,
+            }, unit='fraction')
+            for index, weight in enumerate((0.20, 0.18, 0.15, 0.12, 0.10, 0.08, 0.06, 0.04, 0.03, 0.02, 0.02))
+        ]
+        summary = derive_holdings_summary_metrics(holdings, ['FUND-A'])
+        by_metric = {record.metric: record for record in summary}
+        self.assertEqual(by_metric['number_of_holdings'].value, 11)
+        self.assertAlmostEqual(by_metric['top10_concentration'].value, 0.98)
 
     def test_structured_csv_reader_normalizes_holdings_rows(self):
         provider = ConfiguredStructuredProvider()

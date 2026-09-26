@@ -67,7 +67,14 @@ class MonthlySnapshotStore:
         candidates.sort(key=lambda item: item[0])
         return candidates[-1][1]
 
-    def write(self, as_of_date: str, records: list[dict[str, Any]], fund_evaluations: list[dict[str, Any]], force_revision: bool = False) -> dict[str, Any]:
+    def write(
+        self,
+        as_of_date: str,
+        records: list[dict[str, Any]],
+        fund_evaluations: list[dict[str, Any]],
+        force_revision: bool = False,
+        metric_priority_level: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         try:
             report_date = date.fromisoformat(as_of_date[:10])
         except (TypeError, ValueError):
@@ -98,6 +105,7 @@ class MonthlySnapshotStore:
             'files': file_names,
             'record_counts': {name: len(values) for name, values in categorized.items()},
             'fund_evaluations': fund_evaluations,
+            'metric_priority_level': metric_priority_level or {},
         }
         target.parent.mkdir(parents=True, exist_ok=True)
         temporary = target.parent / f'.tmp-{stamp}'
@@ -143,6 +151,7 @@ class MonthlySnapshotStore:
                 'manifest': manifest,
                 'records': records,
                 'fund_evaluations': manifest.get('fund_evaluations', []),
+                'metric_priority_level': manifest.get('metric_priority_level', {}),
                 'path': manifest_path.parent,
             }
         except (OSError, json.JSONDecodeError, TypeError, KeyError):

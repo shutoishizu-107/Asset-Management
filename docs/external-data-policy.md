@@ -38,6 +38,33 @@ Every normalized record stores schema version, provider ID/name, metric, subject
 
 `status` is `available` only when a source returned a mapped value with an as-of date. Otherwise `value` must be null and status is `unavailable`. Staleness is based on a configured maximum age; when no age is configured, records are stale and cannot pass recommendation readiness checks.
 
+## Requested Fund Data Catalog
+
+These are the desired fields for the fund universe and implementation comparison. This catalog is a target schema, not a claim that every source is currently mapped or licensed. Add a provider/resource mapping only after the exact source field, units, period, as-of date, and reuse rights are verified.
+
+| Group | Requested fields | Use |
+| --- | --- | --- |
+| Basic information | Fund name, ticker/code, asset class, role category, benchmark, inception date, currency | Identify and classify the fund |
+| Costs | Trust fee/expense ratio, total expense ratio, tracking difference, tracking error | Compare long-term cost and index tracking |
+| Size and demand | AUM/net assets, 1-month/1-year/3-year fund flows, liquidity | Assess scale, investor demand, and tradability |
+| Risk and return | 1/3/5/10-year returns, volatility, maximum drawdown, Sharpe ratio | Compare historical risk characteristics |
+| Holdings and concentration | Number of holdings, top 10 names and weights, top-10 concentration, region/sector weights, large/small and value/growth exposure | Assess underlying exposures and overlap |
+| Implementation | SBI availability, NISA accumulation/growth eligibility, domestic alternatives, as-of date and source | Check practical purchase access and provenance |
+
+Time-windowed returns, volatility, drawdown, Sharpe, tracking difference/error, top-10 concentration, and style exposures may be derived only from sufficiently complete, aligned source series/holdings and must retain the source records and calculation period. The API fund/indicator table is independent of the genre-allocation proposal; unavailable candidate data must not be ranked as a substitute.
+
+### Comparison Metric Priorities
+
+| Metric | Priority | Acquisition/derivation |
+| --- | --- | --- |
+| `expense_ratio`, `total_expense_ratio`, `aum`, `fund_flow_1y`, `benchmark`, `number_of_holdings`, `top10_concentration`, `us_weight`, `tech_weight`, `small_cap_weight`, `nisa_tsumitate_eligible`, `nisa_growth_eligible` | High | Source field or complete holdings/index exposure data; derived count/Top 10 requires complete holdings |
+| `fund_flow_1m`, `inception_date`, `value_exposure`, `growth_exposure` | Medium | Source field with documented reporting period and as-of date |
+| `return_1y`, `return_3y_annualized`, `return_5y_annualized`, `volatility`, `max_drawdown`, `sharpe_ratio`, `tracking_difference`, `tracking_error` | Derived | Fund price/NAV series; Sharpe additionally needs risk-free series, tracking metrics need aligned benchmark series |
+| `overlap_with_current_portfolio` | Derived | Candidate and every current position need complete same-date holdings; positions are weighted by current holding value |
+| `overlap_with_sp500`, `overlap_with_fang`, `overlap_with_all_country` | Derived | Candidate and named reference fund need complete holdings from the same source date |
+
+All four overlap measures use `sum(min(candidate_weight, reference_weight))` over security identifiers. Missing, stale, partial, source-mismatched, date-mismatched, or unrecognized holdings produce `unavailable`, never a proxy score. Higher-level display priority is configuration metadata only; it does not assert provider availability or license approval.
+
 ## Storage and Publication
 
 - API keys are read from process environment or `.env`; `.env` is ignored by Git. Never put credentials in URLs, registry data, logs, tests, or commits.

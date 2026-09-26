@@ -12,6 +12,7 @@ from analyze_holdings import parse_text, decode_csv, load_snapshot, percentage, 
 from history_analysis import parse_export, reconcile, analyze_history
 from history_report import goal_projection, required_goal_return, nisa_lifetime_exhaustion
 from reporting import render_report
+from report_sections import render_portfolio_options
 
 ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / 'data/raw/csv'
@@ -141,13 +142,18 @@ class AnalysisTests(unittest.TestCase):
             info = run(ROOT, Path(directory))
             report = Path(directory) / 'reports/monthly/資産分析_202609.html'
             html = report.read_text(encoding='utf-8')
-            for text in ('10,592,284', '2,750,000', 'Executive Summary', '35歳で1億円', 'NISA戦略・利用状況', '1,350,000円', '14,488,536円', '19.5%', '2033年5月', '2033年4月', '案A：成長型', '案B：地域・サイズ分散型', '案C：Gold 10%型', '案D：Gold 5%型', '候補21本', '全世界（除く米国）', '0.1838%', '全売却'):
+            for text in ('10,592,284', '2,750,000', 'Executive Summary', '35歳で1億円', 'NISA戦略・利用状況', '1,350,000円', '14,488,536円', '19.5%', '2033年5月', '2033年4月', '推奨ポートフォリオ設計', '全世界株コア', '小型株・バリュー', '成長株サテライト', 'API取得ファンドのmetric評価', '対象ファンドのAPI取得データはありません', '70%', '15%', '10%', '5%', '全売却'):
                 self.assertIn(text, html)
-            section_order = [html.index(marker) for marker in ('id="summary"', 'id="goal"', 'id="portfolio"', 'id="diagnosis"', 'id="nisa"', 'id="funds"', 'id="portfolio-options"', 'id="contributions"', 'id="existing-assets"', 'id="risk"', 'id="methodology"')]
+            for hidden_candidate_content in ('投資候補ファンド比較', '候補21本', 'ジャンル別・優先候補', '投資対象（日本語）', 'eMAXIS Slim オルカン|SBI'):
+                self.assertNotIn(hidden_candidate_content, html)
+            self.assertNotIn('fund_candidates', info)
+            self.assertNotIn('fund_evaluations', info['external_data'])
+            self.assertNotIn('portfolio_overlap', {record['metric'] for record in info['external_data']['records']})
+            self.assertLess(html.index('全世界株コア'), html.index('小型株・バリュー'))
+            self.assertIn('バリュー特性', html)
+            section_order = [html.index(marker) for marker in ('id="summary"', 'id="goal"', 'id="portfolio"', 'id="diagnosis"', 'id="nisa"', 'id="portfolio-options"', 'id="contributions"', 'id="existing-assets"', 'id="risk"', 'id="methodology"')]
             self.assertEqual(section_order, sorted(section_order))
             self.assertNotIn('今後の推奨ポートフォリオ', html)
-            self.assertEqual(len(info['fund_candidates']['items']), 21)
-            self.assertIn('基本コア', html)
             for excluded in ('余力不足', '未完了注文額', '差引購入額', '純買付口数'):
                 self.assertNotIn(excluded, html)
             self.assertTrue((Path(directory) / 'reports/charts/資産配分_202609.html').is_file())
@@ -175,6 +181,34 @@ class AnalysisTests(unittest.TestCase):
             self.assertNotIn('<script>alert(1)</script>', render_report(info, 'test'))
         self.assertEqual(before, {p.name: p.read_bytes() for p in RAW.glob('*.csv')})
 
+    def test_portfolio_metric_table_uses_only_api_fund_records(self):
+        with tempfile.TemporaryDirectory() as directory:
+            info = run(ROOT, Path(directory))
+            info['external_data']['records'] = [
+                {
+                    'provider_id': 'official_fund_api', 'metric': 'expense_ratio',
+                    'subject': 'API-FUND', 'status': 'available', 'value': 0.001,
+                    'freshness_status': 'fresh', 'source_role': 'primary', 'fetched_at': '2026-09-26',
+                },
+                {
+                    'provider_id': 'analysis_engine', 'metric': 'overlap_with_sp500',
+                    'subject': 'API-FUND', 'status': 'unavailable', 'value': None,
+                    'freshness_status': 'unavailable', 'reason': 'holdings_unavailable',
+                },
+                {
+                    'provider_id': 'analysis_engine', 'metric': 'portfolio_overlap',
+                    'subject': 'OLD-FUND-A|OLD-FUND-B', 'status': 'unavailable', 'value': None,
+                },
+            ]
+            info['external_data']['metric_priority_level'] = {'expense_ratio': 'high'}
+            html = render_portfolio_options(info)
+            self.assertIn('API-FUND', html)
+            self.assertIn('expense_ratio (high)', html)
+            self.assertIn('0.001 [fresh]', html)
+            self.assertIn('overlap_with_sp500', html)
+            self.assertIn('unavailable (holdings_unavailable)', html)
+            self.assertNotIn('OLD-FUND-A', html)
+
     def test_monthly_run_prefers_immutable_external_snapshot(self):
         from unittest.mock import patch
 
@@ -183,7 +217,7 @@ class AnalysisTests(unittest.TestCase):
             shutil.copytree(ROOT / 'data/raw', root / 'data/raw')
             shutil.copytree(ROOT / 'config', root / 'config')
             (root / 'docs').mkdir()
-            for name in ('analysis_assumptions.json', 'fund_candidates.json', 'data_sources.json', 'handover.md'):
+            for name in ('analysis_assumptions.json', 'data_sources.json', 'handover.md'):
                 shutil.copyfile(ROOT / 'docs' / name, root / 'docs' / name)
             shutil.copyfile(ROOT / 'sources.yaml', root / 'sources.yaml')
             shutil.copytree(ROOT / 'cache', root / 'cache')
@@ -191,6 +225,8 @@ class AnalysisTests(unittest.TestCase):
             first = run(root, month='2026-09', offline=True)
             first_path = first['external_data']['monthly_snapshot_path']
             self.assertTrue((root / first_path / 'manifest.json').is_file())
+            manifest = json.loads((root / first_path / 'manifest.json').read_text(encoding='utf-8'))
+            self.assertEqual(manifest['metric_priority_level'].get('expense_ratio'), 'high')
             with patch('providers.registry.collect_latest', side_effect=AssertionError('monthly snapshot must be preferred')):
                 second = run(root, month='2026-09', offline=False)
             self.assertEqual(second['external_data']['monthly_snapshot_path'], first_path)
@@ -201,7 +237,7 @@ class AnalysisTests(unittest.TestCase):
                 'fetch_requested': True,
                 'requests_made': 0,
                 'public_records': first['external_data']['records'],
-                'fund_evaluations': first['external_data']['fund_evaluations'],
+                'fund_evaluations': [],
                 'snapshot_path': None,
             }
             with patch('providers.registry.collect_latest', return_value=refreshed_collection):

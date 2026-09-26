@@ -1,0 +1,53 @@
+{
+  "source": "ユーザー提供の比較メモ（ChatGPTで再作成した候補表）",
+  "source_date": "2026-09-26",
+  "status": "costs_and_overlap_estimates_unverified",
+  "status_note": "コスト・重複・分散効果・役割の記載は検討用の入力情報であり、公式資料との照合前の目安。購入判断には最新の交付目論見書と組入情報を確認する。",
+  "priority_funds": [
+    "eMAXIS Slim オルカン",
+    "eMAXIS Slim S&P500",
+    "ニッセイNASDAQ100",
+    "Tracers S&P1000",
+    "SBI・V・全世界（除く米国）",
+    "SBI-iShares Gold Hなし"
+  ],
+  "nisa_eligibility": {
+    "eMAXIS Slim オルカン": {"tsumitate":"対象","growth":"対象","role":"長期コア。利用可能なら非課税枠を優先する候補。","taxable":"枠満額後も特定口座で保有・積立可能","verified_date":"2026-09-26","source_url":"https://emaxis.am.mufg.jp/fund/253425.html"},
+    "eMAXIS Slim S&P500": {"tsumitate":"対象","growth":"対象","role":"米国上乗せ。コアと合わせた集中度を確認。","taxable":"枠満額後も特定口座で保有・積立可能","verified_date":"2026-09-26","source_url":"https://emaxis.am.mufg.jp/fund/253266.html"},
+    "ニッセイNASDAQ100": {"tsumitate":"対象表示なし","growth":"対象","role":"成長サテライト候補。成長投資枠の利用を検討。","taxable":"枠満額後も特定口座で保有・積立可能","verified_date":"2026-09-26","source_url":"https://www.nam.co.jp/fundinfo/nn100if/memo.html"},
+    "Tracers S&P1000": {"tsumitate":"対象表示なし","growth":"対象","role":"サイズ分散候補。成長投資枠の利用を検討。","taxable":"枠満額後も特定口座で保有・積立可能","verified_date":"2026-09-26","source_url":"https://www.amova-am.com/fund/detail/645127"},
+    "SBI・V・全世界（除く米国）": {"tsumitate":"未確認","growth":"未確認","role":"対象枠を販売会社で確認後に配分。","taxable":"特定口座でも選択可能","verified_date":"2026-09-26","source_url":"https://apl.wealthadvisor.jp/webasp/sbi_am/pc/basic/sa_2025073104.html"},
+    "SBI-iShares Gold Hなし": {"tsumitate":"未確認","growth":"未確認","role":"対象枠を販売会社で確認後に配分。","taxable":"特定口座でも選択可能","verified_date":"2026-09-26","source_url":"https://apl.wealthadvisor.jp/webasp/sbi_am/pc/basic/sa_202306080A.html"}
+  },
+  "items": [
+    {"fund":"eMAXIS Slim オルカン","genre":"全世界株式","investment_target":"全世界株","cost_estimate":"総経費率 約0.07%","existing_overlap":"―","diversification":"◎ 地域","main_role":"基本コア","consideration":"◎"},
+    {"fund":"eMAXIS Slim S&P500","genre":"米国株式","investment_target":"米大型株","cost_estimate":"約0.10%前後","existing_overlap":"オルカンと高","diversification":"△","main_role":"米国オーバーウェイト","consideration":"○"},
+    {"fund":"iFreeNEXT FANG+","genre":"米国成長株","investment_target":"米大型成長10社","cost_estimate":"約0.78%","existing_overlap":"非常に高","diversification":"×","main_role":"超集中成長","consideration":"△"},
+    {"fund":"ニッセイNASDAQ100","genre":"米国成長株","investment_target":"NASDAQ100","cost_estimate":"約0.21%","existing_overlap":"高","diversification":"△","main_role":"成長株サテライト","consideration":"○"},
+    {"fund":"eMAXIS NASDAQ100","genre":"米国成長株","investment_target":"NASDAQ100","cost_estimate":"約0.21%台","existing_overlap":"高","diversification":"△","main_role":"成長株サテライト","consideration":"△"},
+    {"fund":"eMAXIS Slim 全米株式","genre":"米国株式","investment_target":"米国全体","cost_estimate":"低コスト","existing_overlap":"高","diversification":"△","main_role":"S&P500代替","consideration":"○"},
+    {"fund":"SBI・V・全米株式","genre":"米国株式","investment_target":"米国ほぼ全市場","cost_estimate":"0.11%","existing_overlap":"高","diversification":"△","main_role":"S&P500代替","consideration":"○"},
+    {"fund":"Tracers S&P1000","genre":"米国小型株","investment_target":"米中小型1,000社","cost_estimate":"信託0.10725%＋ETF等","existing_overlap":"中","diversification":"◎","main_role":"米国内サイズ分散","consideration":"◎ 候補"},
+    {"fund":"SBI・V・米国小型株","genre":"米国小型株","investment_target":"米小型株","cost_estimate":"低コスト帯","existing_overlap":"低～中","diversification":"○","main_role":"小型株サテライト","consideration":"○"},
+    {"fund":"SBI・V・全世界（除く米国）","genre":"米国以外の株式","investment_target":"非米国世界株","cost_estimate":"実質信託 0.1534%程度","existing_overlap":"中","diversification":"◎","main_role":"米国偏重補正","consideration":"◎ 候補"},
+    {"fund":"SBI・V・先進国（除く米国）","genre":"米国以外の株式","investment_target":"非米先進国","cost_estimate":"低コスト帯","existing_overlap":"中","diversification":"○","main_role":"米国偏重補正","consideration":"○"},
+    {"fund":"eMAXIS Slim 新興国","genre":"新興国株式","investment_target":"新興国","cost_estimate":"約0.2%台","existing_overlap":"低～中","diversification":"○","main_role":"新興国追加","consideration":"○"},
+    {"fund":"SBI・V・新興国","genre":"新興国株式","investment_target":"新興国","cost_estimate":"約0.2%台","existing_overlap":"低～中","diversification":"○","main_role":"新興国追加","consideration":"△"},
+    {"fund":"インド株インデックス系","genre":"インド株式","investment_target":"インド","cost_estimate":"商品次第","existing_overlap":"低","diversification":"○","main_role":"高成長国集中","consideration":"△"},
+    {"fund":"eMAXIS Slim TOPIX","genre":"日本株式","investment_target":"日本株","cost_estimate":"約0.15%前後","existing_overlap":"低～中","diversification":"○","main_role":"日本・円資産増加","consideration":"○"},
+    {"fund":"SBI 読売333","genre":"日本株式","investment_target":"日本株333社","cost_estimate":"信託0.132%","existing_overlap":"低～中","diversification":"○","main_role":"日本株別指数","consideration":"△"},
+    {"fund":"SBI-iShares Gold Hなし","genre":"金","investment_target":"金","cost_estimate":"約0.2%前後","existing_overlap":"ほぼなし","diversification":"◎","main_role":"株式外分散","consideration":"◎ 候補"},
+    {"fund":"SBI-iShares Gold Hあり","genre":"金","investment_target":"金","cost_estimate":"約0.2%前後","existing_overlap":"ほぼなし","diversification":"◎","main_role":"為替除去した金","consideration":"○"},
+    {"fund":"SBI-iShares 全世界債券","genre":"債券","investment_target":"世界債券","cost_estimate":"約0.14～0.16%","existing_overlap":"ほぼなし","diversification":"◎","main_role":"ボラティリティ低減","consideration":"○"},
+    {"fund":"EXE-i 全世界REIT","genre":"REIT","investment_target":"世界不動産","cost_estimate":"約0.2%台","existing_overlap":"低","diversification":"○","main_role":"実物資産分散","consideration":"△"},
+    {"fund":"Tracers S&P500 Top10","genre":"米国成長株","investment_target":"米巨大株10社","cost_estimate":"0.10725%","existing_overlap":"極めて高い","diversification":"×","main_role":"集中投資","consideration":"△"}
+  ],
+  "verification_notes": [
+    {
+      "fund": "SBI-iShares 全世界債券",
+      "input_cost_estimate": "約0.14～0.16%",
+      "verified_note": "2026-09-26に確認したSBIアセットマネジメントの費用ページでは、信託報酬年0.0638%に投資先ファンド費用年0.12%程度を加え、実質的な負担は約0.1838%程度。入力値とは一致しないため再確認対象。",
+      "source_url": "https://www.sbiam.co.jp/fund/memo/sa_2013051304.html"
+    }
+  ]
+}

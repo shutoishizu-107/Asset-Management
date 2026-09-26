@@ -251,8 +251,6 @@ def run(root, output_root=None, assumptions_path=None, history_source_dir=None, 
     goals_path = root / 'config/goals.json'
     profile = json.loads(profile_path.read_text(encoding='utf-8-sig'))
     goals = json.loads(goals_path.read_text(encoding='utf-8-sig'))
-    candidate_path = root / 'docs/fund_candidates.json'
-    fund_candidates = json.loads(candidate_path.read_text(encoding='utf-8-sig'))
     paths = sorted((root / 'data/raw/csv').glob('保有状況_????????_????????.csv')) + sorted((root / 'data/raw/csv').glob('fundHoldings_*.csv'))
     if not paths:
         raise ValueError('No holdings snapshots in data/raw/csv')
@@ -291,22 +289,37 @@ def run(root, output_root=None, assumptions_path=None, history_source_dir=None, 
     market_store = MonthlySnapshotStore(root)
     saved_market = market_store.latest(current_month, current['export_timestamp_inferred'][:10]) if not refresh_external_data else None
     if saved_market is not None:
+        saved_metric_priorities = saved_market.get('metric_priority_level')
+        if not saved_metric_priorities:
+            registry_document = json.loads((root / 'sources.yaml').read_text(encoding='utf-8-sig'))
+            saved_metric_priorities = registry_document.get('metric_priority_level', {})
         external_collection = {
             'fetched_at': saved_market['manifest']['snapshot_created_at'],
             'fetch_requested': False,
             'requests_made': 0,
             'public_records': saved_market['records'],
             'fund_evaluations': saved_market['fund_evaluations'],
+            'metric_priority_level': saved_metric_priorities,
             'snapshot_path': str(saved_market['path'].relative_to(root)),
         }
     else:
-        external_collection = collect_latest(root, persist=persist_cache, offline=offline, force_refresh=refresh_external_data)
+        portfolio_weights = {}
+        for holding in current['holdings']:
+            portfolio_weights[holding['fund']] = portfolio_weights.get(holding['fund'], 0) + holding['value_yen']
+        external_collection = collect_latest(
+            root,
+            persist=persist_cache,
+            offline=offline,
+            force_refresh=refresh_external_data,
+            portfolio_weights=portfolio_weights,
+        )
         if persist_cache:
             saved_market = market_store.write(
                 current['export_timestamp_inferred'][:10],
                 external_collection['public_records'],
                 external_collection['fund_evaluations'],
                 force_revision=refresh_external_data,
+                metric_priority_level=external_collection.get('metric_priority_level', {}),
             )
             external_collection['snapshot_path'] = str(saved_market['path'].relative_to(root))
     tag = current['export_timestamp_inferred'].replace('-', '').replace(':', '').replace('T', '')
@@ -352,9 +365,11 @@ def run(root, output_root=None, assumptions_path=None, history_source_dir=None, 
         assumptions_sha256=hashlib.sha256(assumptions_path.read_bytes()).hexdigest(),
         profile_sha256=hashlib.sha256(profile_path.read_bytes()).hexdigest(),
         goals_sha256=hashlib.sha256(goals_path.read_bytes()).hexdigest(),
-        fund_candidates=fund_candidates, fund_candidates_sha256=hashlib.sha256(candidate_path.read_bytes()).hexdigest(),
         handover_sha256=hashlib.sha256(handover).hexdigest(), snapshot_count=len(snapshots))
-    public_records = external_collection['public_records']
+    public_records = [
+        record for record in external_collection['public_records']
+        if record.get('metric') != 'portfolio_overlap'
+    ]
     run_info.update(
         history=history,
         diagnosis=diagnostic,
@@ -367,7 +382,7 @@ def run(root, output_root=None, assumptions_path=None, history_source_dir=None, 
             'available_count': sum(record['status'] == 'available' for record in public_records),
             'unavailable_count': sum(record['status'] == 'unavailable' for record in public_records),
             'records': public_records,
-            'fund_evaluations': external_collection['fund_evaluations'],
+            'metric_priority_level': external_collection.get('metric_priority_level', {}),
         },
     )
     for name, rows in {'orders': history['orders']['records'], 'executions': history['trades']['records'], 'history_monthly': history['monthly'], 'order_execution_matches': history['reconciliation'], 'unit_bridge': history['unit_bridge']}.items():

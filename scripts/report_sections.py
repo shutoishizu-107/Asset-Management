@@ -189,81 +189,105 @@ def render_nisa_strategy(info):
     return body
 
 
-def _linked_table(headers, rows):
-    head = '<div class="scroll"><table><thead><tr>' + ''.join('<th>' + escape(str(value)) + '</th>' for value in headers) + '</tr></thead><tbody>'
-    body = []
-    for row in rows:
-        cells = []
-        for value in row:
-            if isinstance(value, tuple):
-                label, url = value
-                cells.append('<td><a href="' + escape(url, quote=True) + '">' + escape(label) + '</a></td>')
-            else:
-                cells.append('<td>' + escape(str(value)) + '</td>')
-        body.append('<tr>' + ''.join(cells) + '</tr>')
-    return head + ''.join(body) + '</tbody></table></div>'
-
-
-def render_fund_comparison(info):
-    candidate_data = info['fund_candidates']
-    by_name = {row['fund']: row for row in candidate_data['items']}
-    eligibility = candidate_data['nisa_eligibility']
-    shortlist_rows = []
-    for fund in candidate_data['priority_funds']:
-        item = by_name[fund]
-        nisa = eligibility.get(fund, {})
-        shortlist_rows.append([
-            fund,
-            item['main_role'],
-            item['cost_estimate'],
-            nisa.get('tsumitate', '未確認'),
-            nisa.get('growth', '未確認'),
-            nisa.get('role', '枠対象確認後に決定'),
-            nisa.get('taxable', '枠満額後の候補'),
-            ('公式資料', nisa['source_url']) if nisa.get('source_url') else '未確認',
-        ])
-    body = '<section id="funds"><h2>投資候補ファンド比較</h2><h3>役割別ショートリスト</h3>'
-    body += '<p>費用と既存PFとの重複はユーザー提供の概算入力です。NISA対象は公式ページで対象表示を確認できた項目だけ記載し、「表示なし」は対象外を意味しません。</p>'
-    body += _linked_table(['候補', '役割', 'コスト目安（入力）', 'つみたて投資枠', '成長投資枠', 'NISA内の役割案', '特定口座の扱い案', '確認先'], shortlist_rows)
-    body += '<p class="muted">オルカンとS&amp;P500は両枠対象、ニッセイNASDAQ100とTracers S&amp;P1000は成長投資枠対象を各運用会社の商品ページで確認。全世界（除く米国）とGold Hなしはこの確認では枠対象を確定できません。販売会社の取扱・積立設定も購入前に確認してください。</p>'
-    evaluations = {item['fund_id']: item for item in info.get('external_data', {}).get('fund_evaluations', [])}
-    readiness_rows = []
-    for fund in candidate_data['priority_funds']:
-        status = evaluations.get(fund, {'status': 'unavailable', 'missing_or_stale_metrics': ['expense_ratio', 'aum', 'holdings', 'benchmark']})
-        readiness_rows.append([fund, status['status'], ', '.join(status['missing_or_stale_metrics']) or 'なし', '算出しない'])
-    body += '<h3>データ充足度（自動推奨ではなく確認状況）</h3>'
-    body += simple_table(['候補ファンド', 'データ状態', '不足/古い指標', '評価点・推奨'], readiness_rows)
-    body += '<p class="muted">必要データが未取得またはstaleなら、スコアや優劣の推奨は作りません。確認できるファンドだけの平均・合成値も生成しません。</p>'
-    body += '<h3>ファンド・ユニバース</h3><p>21件の入力一覧は詳細比較が必要な場合にのみ開けます。重複・分散の評価は未検証メモです。</p><details><summary>候補21本と全評価軸を表示</summary>'
-    rows = []
-    for item in candidate_data['items']:
-        nisa = eligibility.get(item['fund'], {})
-        rows.append([
-            item['fund'], item['investment_target'], item['cost_estimate'], item['existing_overlap'], item['diversification'], item['main_role'], item['consideration'],
-            nisa.get('tsumitate', '未確認'), nisa.get('growth', '未確認'), nisa.get('role', '対象枠を確認後に検討'), nisa.get('taxable', '特定口座での保有可否を要確認'),
-        ])
-    body += simple_table(['ファンド', '投資対象', 'コスト目安（入力）', '既存PFとの重複', '分散効果', '主な役割', '検討位置', 'つみたて枠', '成長枠', 'NISAでの役割', '特定口座'], rows)
-    body += '<p class="muted">' + escape(candidate_data['status_note']) + '</p>'
-    for note in candidate_data.get('verification_notes', []):
-        body += '<p class="notice">' + escape(note['verified_note']) + ' <a href="' + escape(note['source_url'], quote=True) + '">公式資料</a></p>'
-    body += '</details></section>'
-    return body
-
-
-_PORTFOLIO_PLANS = [
-    {'name':'参考案：All Country 60 / S&P500 30 / FANG+ 10', 'purpose':'既存候補の比較基準', 'stock':'100%（仮定）', 'us':'高め。実質比率は未確認', 'concentration':'高め（FANG+を含む）', 'diversification':'世界株＋米国大型株。ただし重複あり', 'allocations':[('eMAXIS Slim オルカン',60),('eMAXIS Slim S&P500',30),('iFreeNEXT FANG+',10)]},
-    {'name':'案A：成長型', 'purpose':'NASDAQ100と米国中小型を上乗せ', 'stock':'100%（仮定）', 'us':'高め。実質比率は未確認', 'concentration':'高め（大型成長を追加）', 'diversification':'米国の企業規模を追加', 'allocations':[('eMAXIS Slim オルカン',60),('eMAXIS Slim S&P500',20),('ニッセイNASDAQ100',10),('Tracers S&P1000',10)]},
-    {'name':'案B：地域・サイズ分散型', 'purpose':'NASDAQ100を使わず非米国を追加', 'stock':'100%（仮定）', 'us':'分散を追加。実質比率は未確認', 'concentration':'成長集中を抑える設計', 'diversification':'S&P1000＋全世界（除く米国）', 'allocations':[('eMAXIS Slim オルカン',60),('eMAXIS Slim S&P500',20),('Tracers S&P1000',10),('SBI・V・全世界（除く米国）',10)]},
-    {'name':'案C：Gold 10%型', 'purpose':'株式中心にGoldを10%組み合わせる', 'stock':'90%（Goldを株式外と仮定）', 'us':'高め。実質比率は未確認', 'concentration':'成長サテライトあり', 'diversification':'Gold 10%を追加', 'allocations':[('eMAXIS Slim オルカン',60),('eMAXIS Slim S&P500',20),('ニッセイNASDAQ100',10),('SBI-iShares Gold Hなし',10)]},
-    {'name':'案D：Gold 5%型', 'purpose':'株式中心にGoldを5%組み合わせる', 'stock':'95%（Goldを株式外と仮定）', 'us':'高め。実質比率は未確認', 'concentration':'成長サテライトあり', 'diversification':'Gold 5%を追加', 'allocations':[('eMAXIS Slim オルカン',65),('eMAXIS Slim S&P500',20),('ニッセイNASDAQ100',10),('SBI-iShares Gold Hなし',5)]},
+_PORTFOLIO_ALLOCATION = [
+    {'role': '全世界株コア', 'genres': ('全世界株式',), 'weight_pct': 70, 'purpose': '長期保有の中心。'},
+    {'role': '小型株・バリュー', 'genres': ('米国小型株',), 'weight_pct': 15, 'purpose': '小型株枠。バリュー特性は候補ごとに要確認。'},
+    {'role': '金', 'genres': ('金',), 'weight_pct': 10, 'purpose': '株式以外の分散枠。'},
+    {'role': '成長株サテライト', 'genres': ('米国成長株',), 'weight_pct': 5, 'purpose': '成長株への限定的な上乗せ。'},
 ]
 
 
-def render_portfolio_options():
-    body = '<section id="portfolio-options"><h2>ポートフォリオ候補</h2><p>すべて新規積立額に対する未採用シナリオです。株式比率はGoldを株式外とした機械的区分。米国比率・費用加重平均・銘柄重複率は未算出です。</p>'
-    rows = [[plan['name'], plan['purpose'], plan['stock'], plan['us'], plan['concentration'], plan['diversification'], '未算出（費用入力未検証）'] for plan in _PORTFOLIO_PLANS]
-    body += simple_table(['案', '目的', '株式比率', '米国集中', '株式集中', '分散の役割', '加重コスト'], rows)
-    body += '<p class="muted">候補を順位付けする表ではありません。本人の継続可能性と値下がり許容度を確認して比較します。</p></section>'
+_FUND_METRIC_GROUPS = {
+    '基本・コスト・規模': (
+        'fund_name', 'ticker', 'asset_class', 'role_category', 'benchmark', 'inception_date', 'currency',
+        'expense_ratio', 'total_expense_ratio', 'aum', 'fund_flow_1m', 'fund_flow_1y',
+        'number_of_holdings', 'top10_concentration',
+        'us_weight', 'tech_weight', 'small_cap_weight', 'value_exposure', 'growth_exposure',
+        'nisa_tsumitate_eligible', 'nisa_growth_eligible', 'sbi_available', 'domestic_alternative',
+    ),
+    'リターン・リスク': (
+        'return_1y', 'return_3y_annualized', 'return_5y_annualized', 'volatility',
+        'max_drawdown', 'sharpe_ratio', 'tracking_difference', 'tracking_error',
+    ),
+    'ポートフォリオ重複': (
+        'overlap_with_current_portfolio', 'overlap_with_sp500', 'overlap_with_fang',
+        'overlap_with_all_country',
+    ),
+}
+
+_FUND_SUBJECT_METRICS = {
+    metric
+    for metrics in _FUND_METRIC_GROUPS.values()
+    for metric in metrics
+} | {'holdings', 'price_history', 'nav'}
+
+
+def _metric_display(record):
+    if record is None or record.get('status') != 'available':
+        reason = record.get('reason') if record else None
+        return 'unavailable' + (f" ({reason})" if reason else '')
+    value = record.get('value')
+    if isinstance(value, list):
+        text = f'系列 {len(value)}点'
+    elif isinstance(value, (dict, bool, int, float, str)):
+        text = json.dumps(value, ensure_ascii=False, separators=(',', ':'))
+    else:
+        text = 'unavailable'
+    freshness = record.get('freshness_status', 'unavailable')
+    return f'{text} [{freshness}]'
+
+
+def _render_api_fund_metrics(info):
+    records = info.get('external_data', {}).get('records', [])
+    fund_subjects = sorted({
+        record.get('subject')
+        for record in records
+        if record.get('metric') in _FUND_SUBJECT_METRICS
+        and record.get('subject') not in (None, '', 'unconfigured')
+        and record.get('provider_id') != 'analysis_engine'
+    })
+    if not fund_subjects:
+        return '<h3>API取得ファンドのmetric評価</h3><p>対象ファンドのAPI取得データはありません。取得・利用条件が承認されたデータが揃うまでは、実装候補の選定を保留します。</p>'
+
+    by_subject_metric = {}
+    for record in records:
+        if record.get('subject') not in fund_subjects:
+            continue
+        key = (record.get('subject'), record.get('metric'))
+        current = by_subject_metric.get(key)
+        rank = (
+            record.get('status') == 'available',
+            record.get('freshness_status') == 'fresh',
+            record.get('source_role') == 'primary',
+            record.get('fetched_at') or '',
+        )
+        if current is None or rank > current[0]:
+            by_subject_metric[key] = (rank, record)
+
+    body = '<h3>API取得ファンドのmetric評価</h3><p>API取得・許諾済みのファンドだけを掲載します。各セルは値と鮮度状態です。欠損metricはunavailableとして示し、部分データだけで順位付けしません。出典・基準日・取得日時は下のData Sourcesで確認できます。</p>'
+    for group_name, metrics in _FUND_METRIC_GROUPS.items():
+        rows = []
+        for subject in fund_subjects:
+            values = [subject]
+            for metric in metrics:
+                selected = by_subject_metric.get((subject, metric))
+                values.append(_metric_display(selected[1] if selected else None))
+            rows.append(values)
+        body += '<h4>' + escape(group_name) + '</h4>'
+        priorities = info.get('external_data', {}).get('metric_priority_level', {})
+        metric_headers = [f'{metric} ({priorities[metric]})' if metric in priorities else metric for metric in metrics]
+        body += simple_table(['API取得ファンド'] + metric_headers, rows)
+    return body
+
+
+def render_portfolio_options(info):
+    body = '<section id="portfolio-options"><h2>推奨ポートフォリオ設計</h2><p>以下はジャンル配分のたたき台です。ファンド単位の優劣や本人のリスク許容度を確認した確定推奨ではありません。</p>'
+    allocation_rows = [[item['role'], f"{item['weight_pct']}%", item['purpose']] for item in _PORTFOLIO_ALLOCATION]
+    allocation_rows.append(['合計', f"{sum(item['weight_pct'] for item in _PORTFOLIO_ALLOCATION)}%", ''])
+    body += '<h3>ジャンル配分</h3>'
+    body += simple_table(['役割・ジャンル', '目標配分', '設計意図'], allocation_rows)
+    body += _render_api_fund_metrics(info)
+    body += '<p class="muted">各ジャンルの実装候補は、上のAPI metricデータに加えてSBI取扱可否、NISA対象、データ鮮度を確認した後に最大5件まで絞ります。現時点では自動順位付け・選定は行いません。</p></section>'
     return body
 
 
@@ -272,13 +296,11 @@ def render_contribution_plans(info):
     steps = goal['contributions_yen']
     amounts = [steps['through_age_25'], steps['age_26_to_29'], steps['age_30_plus_tentative']]
     headings = ['23～25歳', '26歳以降', '30歳以降（25万円・検討中）']
-    body = '<section id="contributions"><h2>積立プラン：比率を毎月の金額へ変換</h2><p>合計月額は現在15万円、26歳以降20万円、30歳から25万円は検討ケースです。</p>'
-    for plan in _PORTFOLIO_PLANS:
-        body += '<h3>' + escape(plan['name']) + '</h3>'
-        rows = [[fund, f'{weight}%', yen(amounts[0] * weight // 100) + '円', yen(amounts[1] * weight // 100) + '円', yen(amounts[2] * weight // 100) + '円'] for fund, weight in plan['allocations']]
-        rows.append(['合計', '100%', yen(amounts[0]) + '円', yen(amounts[1]) + '円', yen(amounts[2]) + '円'])
-        body += simple_table(['ファンド', '比率'] + headings, rows)
-    body += '<p>NISA対象なら、つみたて投資枠を優先し、成長投資枠は対象商品・年間枠・残枠を確認して使います。NISA利用可能額を超える積立は特定口座へ回す想定です。各案の具体的な枠振分は採用案と商品対象の確認後に決めます。</p></section>'
+    body = '<section id="contributions"><h2>積立プラン：ジャンル配分を毎月額へ換算</h2><p>合計月額は現在15万円、26歳以降20万円、30歳から25万円は検討ケースです。</p>'
+    rows = [[item['role'], f"{item['weight_pct']}%", *(yen(amount * item['weight_pct'] // 100) + '円' for amount in amounts)] for item in _PORTFOLIO_ALLOCATION]
+    rows.append(['合計', '100%', *(yen(amount) + '円' for amount in amounts)])
+    body += simple_table(['役割・ジャンル', '比率'] + headings, rows)
+    body += '<p>NISA対象なら、つみたて投資枠を優先し、成長投資枠は対象商品・年間枠・残枠を確認して使います。NISA利用可能額を超える積立は特定口座へ回す想定です。具体的な枠振分は採用案と商品対象の確認後に決めます。</p></section>'
     return body
 
 
@@ -310,7 +332,7 @@ def render_risk_scenarios(info):
         rows.append([f'{shock}%', yen(loss, True) + '円', yen(total + loss) + '円'])
     body = '<section id="risk"><h2>リスク・ストレステスト</h2><p>株式概算部分のみを一律に下落させ、債券・REIT・他条件は不変とした機械的シナリオです。発生確率や最大損失を示すものではありません。</p>'
     body += simple_table(['株式価格の仮定', '投信評価額への影響', '残る投信評価額'], rows)
-    body += '<h3>今回の入力では定量化できないリスク</h3><ul><li>円高：ファンド別の通貨・為替ヘッジ比率がないため影響額は算出しません。</li><li>米国大型テック下落：同一基準日の組入銘柄と重複率がないため、S&amp;P500・オルカン・FANG+を重複計上せずに試算できません。</li><li>Goldあり/なし：Goldは現保有に含まれず、C/D案は新規積立額の構成だけを比較しています。資産全体のGoldストレスは算出していません。</li></ul></section>'
+    body += '<h3>今回の入力では定量化できないリスク</h3><ul><li>円高：ファンド別の通貨・為替ヘッジ比率がないため影響額は算出しません。</li><li>米国大型テック下落：同一基準日の組入銘柄と重複率がないため、S&amp;P500・オルカン・FANG+を重複計上せずに試算できません。</li><li>Gold：今回のジャンル配分案では10%を設定していますが、Goldは現保有に含まれません。提案比率を含む将来資産全体のGoldストレスは未算出です。</li></ul></section>'
     return body
 
 
@@ -328,12 +350,23 @@ def render_data_methodology(info):
         ['注文履歴', info['history']['orders']['metadata']['発注開始年月日'] + ' ～ ' + info['history']['orders']['metadata']['発注終了年月日'], '発注記録'],
         ['約定履歴', info['history']['trades']['metadata']['約定開始年月日'] + ' ～ ' + info['history']['trades']['metadata']['約定終了年月日'], '受渡金額の買付実績'],
         ['NISA画面転記', nisa['source_date'], '画面の最大利用可能額を正とし、CSV等から再推計しない'],
-        ['候補コスト・重複', info['fund_candidates']['source_date'], 'ユーザー入力の未検証目安'],
     ])
     body += '<h3>計算と限界</h3><ul><li>取得金額と評価損益は保有明細のみを合算。取得金額は累計入金額ではありません。</li><li>目標試算は月末拠出、一定年率、実効年率を月率へ換算。税・費用・分配・為替を考慮しません。</li><li>資産クラス概算は8資産均等型の基本比率を適用し、その他ファンドを株式として計算。</li><li>NISA利用状況は画面転記、NISA口座の現在残高は保有CSV。現在残高を年間・生涯枠利用額とみなしません。</li><li>現保有ファンドの費用率、正確な地域・銘柄重複、NISA残枠の将来変化は未確認です。</li></ul>'
     external = info.get('external_data', {})
+    external_records = external.get('records', [])
+    api_fund_subjects = {
+        record.get('subject')
+        for record in external_records
+        if record.get('provider_id') != 'analysis_engine'
+        and record.get('metric') in _FUND_SUBJECT_METRICS
+        and record.get('subject') not in (None, '', 'unconfigured')
+    }
     external_rows = []
-    for record in external.get('records', []):
+    for record in external_records:
+        if record.get('subject') in (None, '', 'unconfigured') or record.get('metric') == 'portfolio_overlap':
+            continue
+        if record.get('provider_id') == 'analysis_engine' and record.get('subject') not in api_fund_subjects:
+            continue
         value = record.get('value') if record.get('status') == 'available' else None
         if isinstance(value, list):
             display_value = f'系列 {len(value)}点' if value else '空系列'
@@ -364,8 +397,6 @@ def render_data_methodology(info):
     body += '<h3>公式資料</h3><ul>'
     for item in diagnosis['sources']:
         body += '<li><a href="' + escape(item['url'], quote=True) + '">' + escape(item['title']) + '</a>（確認日 ' + escape(item['accessed']) + '）</li>'
-    for fund, details in info['fund_candidates']['nisa_eligibility'].items():
-        body += '<li><a href="' + escape(details['source_url'], quote=True) + '">' + escape(fund) + ' NISA表示</a>（確認日 ' + escape(details['verified_date']) + '）</li>'
     body += '</ul>'
     body += '<div class="notice">引継ぎ文書の損益 ' + yen(ref['fund_gain_yen'], True) + '円と今回CSVの ' + yen(snapshot['totals']['gain_yen'], True) + '円との差は ' + yen(gain_gap, True) + '円で、原因未確認です。引継ぎ参考の銀行残高 ' + yen(ref['bank_balance_yen']) + '円は今回CSVの投信評価額に加算していません。</div>'
     body += '<details><summary>保有明細・注文と約定の照合データ</summary>'
