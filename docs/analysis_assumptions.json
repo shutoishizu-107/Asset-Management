@@ -1,0 +1,17 @@
+{
+  "source": "docs/handover.md",
+  "source_date": "2026-09-26",
+  "monthly_contributions_yen": {
+    "S&P500系": 50000,
+    "オール・カントリー": 50000,
+    "FANG+": 50000
+  },
+  "handover_reference": {
+    "fund_value_yen": 10592284,
+    "fund_gain_yen": 3364133,
+    "bank_balance_yen": 150200,
+    "total_assets_yen": 10742484
+  },
+  "projection_note": "引継ぎ文書の積立額を使った配分の機械的試算。既存資産を保有し、新規積立を追加する前提。価格変動・分配金・税・費用は織り込まない。銀行残高を含まない。各口座への振り分けやNISA枠の可否は計算しない。将来の収益予測ではない。",
+  "reference_note": "引継ぎ文書の参考値は2026-09-26時点。CSV由来の確認値と区別し、後日のCSVに銀行残高を足し合わせない。"
+}

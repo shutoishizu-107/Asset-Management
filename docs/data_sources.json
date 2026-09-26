@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "files": {
+    "data/raw/csv/保有状況_20260926_20260926.csv": {
+      "original_filename": "fundHoldings_20260926151945.csv",
+      "sha256": "8d02dd533a255949fb56626a25f55074711b97e38615ebe5632ebafefaf31983",
+      "period_start": "20260926",
+      "period_end": "20260926",
+      "export_timestamp_inferred": "2026-09-26T15:19:45",
+      "date_note": "期間ラベルは元ファイル名から推定した出力日。評価基準日時は不明。"
+    },
+    "data/raw/csv/積立買付注文履歴_20210927_20260926.csv": {
+      "original_filename": "SaveFile_ACCUMULATION_00001_00132.csv",
+      "sha256": "6c5e87cba6d8adebcf6b65c2e24a24c883f710a5c15f6b007231aa476c809cee",
+      "period_start": "20210927",
+      "period_end": "20260926"
+    },
+    "data/raw/csv/約定履歴_20240927_20260926.csv": {
+      "original_filename": "SaveFile_000001_000053.csv",
+      "sha256": "ddf2c44e7446f52118e959be9db6114127861d46d380044bf49ed8e451241c11",
+      "period_start": "20240927",
+      "period_end": "20260926"
+    },
+    "data/history/originals/保有状況_20260926_20260926.csv": {
+      "original_filename": "fundHoldings_20260926151945.csv",
+      "sha256": "8d02dd533a255949fb56626a25f55074711b97e38615ebe5632ebafefaf31983",
+      "date_note": "最初に受領した保有状況の元ファイル。分析入力とは別に保管。"
+    }
+  }
+}

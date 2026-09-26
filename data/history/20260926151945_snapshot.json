@@ -1,0 +1,446 @@
+{
+  "schema_version": 1,
+  "source_file": "保有状況_20260926_20260926.csv",
+  "original_source_file": "fundHoldings_20260926151945.csv",
+  "source_sha256": "8d02dd533a255949fb56626a25f55074711b97e38615ebe5632ebafefaf31983",
+  "source_encoding": "utf-8-sig",
+  "export_timestamp_inferred": "2026-09-26T15:19:45",
+  "valuation_date": null,
+  "date_note": "出力日時はファイル名から推定。評価基準日時・タイムゾーンはCSV本文に記載なし。",
+  "totals": {
+    "value_yen": 10592284,
+    "cost_yen": 7228144,
+    "gain_yen": 3364140,
+    "day_change_yen": 42563,
+    "gain_pct": "46.54"
+  },
+  "holdings": [
+    {
+      "account": "特定預り",
+      "fund": "eMAXIS Slim バランス(8資産均等型)",
+      "fund_original": "ｅＭＡＸＩＳ　Ｓｌｉｍ　バランス（８資産均等型）",
+      "accumulation_marker": "",
+      "periodic_sale_marker": "",
+      "units": 715022,
+      "sale_order_units": 0,
+      "nav_yen": 21201,
+      "unit_cost_yen": 17884,
+      "value_yen": 1515918,
+      "cost_yen": 1278745,
+      "gain_yen": 237173,
+      "gain_pct_csv": "18.55",
+      "day_change_yen": 2431,
+      "day_change_pct_csv": "0.16",
+      "category": "8資産均等型"
+    },
+    {
+      "account": "特定預り",
+      "fund": "SBI・V・S&P500インデックス・ファンド",
+      "fund_original": "ＳＢＩ・Ｖ・Ｓ＆Ｐ５００インデックス・ファンド",
+      "accumulation_marker": "",
+      "periodic_sale_marker": "",
+      "units": 241660,
+      "sale_order_units": 0,
+      "nav_yen": 41159,
+      "unit_cost_yen": 27649,
+      "value_yen": 994648,
+      "cost_yen": 668165,
+      "gain_yen": 326483,
+      "gain_pct_csv": "48.86",
+      "day_change_yen": 3963,
+      "day_change_pct_csv": "0.4",
+      "category": "S&P500系"
+    },
+    {
+      "account": "NISA (成長)預り",
+      "fund": "eMAXIS Slim 全世界株式(オール・カントリー)",
+      "fund_original": "ｅＭＡＸＩＳ　Ｓｌｉｍ　全世界株式（オール・カントリー）",
+      "accumulation_marker": "○",
+      "periodic_sale_marker": "",
+      "units": 99940,
+      "sale_order_units": 0,
+      "nav_yen": 38325,
+      "unit_cost_yen": 36174,
+      "value_yen": 383020,
+      "cost_yen": 361522,
+      "gain_yen": 21498,
+      "gain_pct_csv": "5.95",
+      "day_change_yen": 1370,
+      "day_change_pct_csv": "0.36",
+      "category": "オール・カントリー"
+    },
+    {
+      "account": "NISA (成長)預り",
+      "fund": "SBI・iシェアーズ・インド株式インデックス・ファンド",
+      "fund_original": "ＳＢＩ・ｉシェアーズ・インド株式インデックス・ファンド",
+      "accumulation_marker": "",
+      "periodic_sale_marker": "",
+      "units": 46926,
+      "sale_order_units": 0,
+      "nav_yen": 10189,
+      "unit_cost_yen": 10656,
+      "value_yen": 47812,
+      "cost_yen": 50004,
+      "gain_yen": -2192,
+      "gain_pct_csv": "-4.38",
+      "day_change_yen": -437,
+      "day_change_pct_csv": "-0.91",
+      "category": "インド株"
+    },
+    {
+      "account": "NISA (つみたて)預り",
+      "fund": "eMAXIS Slim 米国株式(S&P500)",
+      "fund_original": "ｅＭＡＸＩＳ　Ｓｌｉｍ　米国株式（Ｓ＆Ｐ５００）",
+      "accumulation_marker": "○",
+      "periodic_sale_marker": "",
+      "units": 465527,
+      "sale_order_units": 0,
+      "nav_yen": 45049,
+      "unit_cost_yen": 33296,
+      "value_yen": 2097152,
+      "cost_yen": 1550018,
+      "gain_yen": 547134,
+      "gain_pct_csv": "35.3",
+      "day_change_yen": 9636,
+      "day_change_pct_csv": "0.46",
+      "category": "S&P500系"
+    },
+    {
+      "account": "NISA (つみたて)預り",
+      "fund": "eMAXIS Slim 全世界株式(オール・カントリー)",
+      "fund_original": "ｅＭＡＸＩＳ　Ｓｌｉｍ　全世界株式（オール・カントリー）",
+      "accumulation_marker": "",
+      "periodic_sale_marker": "",
+      "units": 264936,
+      "sale_order_units": 0,
+      "nav_yen": 38325,
+      "unit_cost_yen": 24535,
+      "value_yen": 1015367,
+      "cost_yen": 650020,
+      "gain_yen": 365347,
+      "gain_pct_csv": "56.21",
+      "day_change_yen": 3630,
+      "day_change_pct_csv": "0.36",
+      "category": "オール・カントリー"
+    },
+    {
+      "account": "NISA (つみたて)預り",
+      "fund": "iFreeNEXT FANG+インデックス",
+      "fund_original": "ｉＦｒｅｅＮＥＸＴ　ＦＡＮＧ＋インデックス",
+      "accumulation_marker": "○",
+      "periodic_sale_marker": "",
+      "units": 113619,
+      "sale_order_units": 0,
+      "nav_yen": 103184,
+      "unit_cost_yen": 79213,
+      "value_yen": 1172366,
+      "cost_yen": 900010,
+      "gain_yen": 272356,
+      "gain_pct_csv": "30.26",
+      "day_change_yen": 11817,
+      "day_change_pct_csv": "1.02",
+      "category": "FANG+"
+    },
+    {
+      "account": "旧NISA預り",
+      "fund": "eMAXIS Slim バランス(8資産均等型)",
+      "fund_original": "ｅＭＡＸＩＳ　Ｓｌｉｍ　バランス（８資産均等型）",
+      "accumulation_marker": "",
+      "periodic_sale_marker": "",
+      "units": 422608,
+      "sale_order_units": 0,
+      "nav_yen": 21201,
+      "unit_cost_yen": 14198,
+      "value_yen": 895971,
+      "cost_yen": 600018,
+      "gain_yen": 295953,
+      "gain_pct_csv": "49.32",
+      "day_change_yen": 1437,
+      "day_change_pct_csv": "0.16",
+      "category": "8資産均等型"
+    },
+    {
+      "account": "旧NISA預り",
+      "fund": "SBI・V・S&P500インデックス・ファンド",
+      "fund_original": "ＳＢＩ・Ｖ・Ｓ＆Ｐ５００インデックス・ファンド",
+      "accumulation_marker": "",
+      "periodic_sale_marker": "",
+      "units": 309444,
+      "sale_order_units": 0,
+      "nav_yen": 41159,
+      "unit_cost_yen": 19390,
+      "value_yen": 1273640,
+      "cost_yen": 600011,
+      "gain_yen": 673629,
+      "gain_pct_csv": "112.27",
+      "day_change_yen": 5075,
+      "day_change_pct_csv": "0.4",
+      "category": "S&P500系"
+    },
+    {
+      "account": "ジュニアNISA-旧NISA預り",
+      "fund": "eMAXIS Slim バランス(8資産均等型)",
+      "fund_original": "ｅＭＡＸＩＳ　Ｓｌｉｍ　バランス（８資産均等型）",
+      "accumulation_marker": "",
+      "periodic_sale_marker": "",
+      "units": 223140,
+      "sale_order_units": 0,
+      "nav_yen": 21201,
+      "unit_cost_yen": 12627,
+      "value_yen": 473079,
+      "cost_yen": 281758,
+      "gain_yen": 191321,
+      "gain_pct_csv": "67.9",
+      "day_change_yen": 759,
+      "day_change_pct_csv": "0.16",
+      "category": "8資産均等型"
+    },
+    {
+      "account": "ジュニアNISA-旧NISA預り",
+      "fund": "SBI・V・S&P500インデックス・ファンド",
+      "fund_original": "ＳＢＩ・Ｖ・Ｓ＆Ｐ５００インデックス・ファンド",
+      "accumulation_marker": "",
+      "periodic_sale_marker": "",
+      "units": 175736,
+      "sale_order_units": 0,
+      "nav_yen": 41159,
+      "unit_cost_yen": 16381,
+      "value_yen": 723311,
+      "cost_yen": 287873,
+      "gain_yen": 435438,
+      "gain_pct_csv": "151.26",
+      "day_change_yen": 2882,
+      "day_change_pct_csv": "0.4",
+      "category": "S&P500系"
+    }
+  ],
+  "accounts": [
+    {
+      "name": "NISA (つみたて)預り",
+      "count": 3,
+      "value_yen": 4284885,
+      "cost_yen": 3100048,
+      "gain_yen": 1184837,
+      "day_change_yen": 25083,
+      "weight_pct": "40.45",
+      "gain_pct": "38.22"
+    },
+    {
+      "name": "特定預り",
+      "count": 2,
+      "value_yen": 2510566,
+      "cost_yen": 1946910,
+      "gain_yen": 563656,
+      "day_change_yen": 6394,
+      "weight_pct": "23.70",
+      "gain_pct": "28.95"
+    },
+    {
+      "name": "旧NISA預り",
+      "count": 2,
+      "value_yen": 2169611,
+      "cost_yen": 1200029,
+      "gain_yen": 969582,
+      "day_change_yen": 6512,
+      "weight_pct": "20.48",
+      "gain_pct": "80.80"
+    },
+    {
+      "name": "ジュニアNISA-旧NISA預り",
+      "count": 2,
+      "value_yen": 1196390,
+      "cost_yen": 569631,
+      "gain_yen": 626759,
+      "day_change_yen": 3641,
+      "weight_pct": "11.29",
+      "gain_pct": "110.03"
+    },
+    {
+      "name": "NISA (成長)預り",
+      "count": 2,
+      "value_yen": 430832,
+      "cost_yen": 411526,
+      "gain_yen": 19306,
+      "day_change_yen": 933,
+      "weight_pct": "4.07",
+      "gain_pct": "4.69"
+    }
+  ],
+  "funds": [
+    {
+      "name": "SBI・V・S&P500インデックス・ファンド",
+      "count": 3,
+      "value_yen": 2991599,
+      "cost_yen": 1556049,
+      "gain_yen": 1435550,
+      "day_change_yen": 11920,
+      "weight_pct": "28.24",
+      "gain_pct": "92.26"
+    },
+    {
+      "name": "eMAXIS Slim バランス(8資産均等型)",
+      "count": 3,
+      "value_yen": 2884968,
+      "cost_yen": 2160521,
+      "gain_yen": 724447,
+      "day_change_yen": 4627,
+      "weight_pct": "27.24",
+      "gain_pct": "33.53"
+    },
+    {
+      "name": "eMAXIS Slim 米国株式(S&P500)",
+      "count": 1,
+      "value_yen": 2097152,
+      "cost_yen": 1550018,
+      "gain_yen": 547134,
+      "day_change_yen": 9636,
+      "weight_pct": "19.80",
+      "gain_pct": "35.30"
+    },
+    {
+      "name": "eMAXIS Slim 全世界株式(オール・カントリー)",
+      "count": 2,
+      "value_yen": 1398387,
+      "cost_yen": 1011542,
+      "gain_yen": 386845,
+      "day_change_yen": 5000,
+      "weight_pct": "13.20",
+      "gain_pct": "38.24"
+    },
+    {
+      "name": "iFreeNEXT FANG+インデックス",
+      "count": 1,
+      "value_yen": 1172366,
+      "cost_yen": 900010,
+      "gain_yen": 272356,
+      "day_change_yen": 11817,
+      "weight_pct": "11.07",
+      "gain_pct": "30.26"
+    },
+    {
+      "name": "SBI・iシェアーズ・インド株式インデックス・ファンド",
+      "count": 1,
+      "value_yen": 47812,
+      "cost_yen": 50004,
+      "gain_yen": -2192,
+      "day_change_yen": -437,
+      "weight_pct": "0.45",
+      "gain_pct": "-4.38"
+    }
+  ],
+  "categories": [
+    {
+      "name": "S&P500系",
+      "count": 4,
+      "value_yen": 5088751,
+      "cost_yen": 3106067,
+      "gain_yen": 1982684,
+      "day_change_yen": 21556,
+      "weight_pct": "48.04",
+      "gain_pct": "63.83"
+    },
+    {
+      "name": "8資産均等型",
+      "count": 3,
+      "value_yen": 2884968,
+      "cost_yen": 2160521,
+      "gain_yen": 724447,
+      "day_change_yen": 4627,
+      "weight_pct": "27.24",
+      "gain_pct": "33.53"
+    },
+    {
+      "name": "オール・カントリー",
+      "count": 2,
+      "value_yen": 1398387,
+      "cost_yen": 1011542,
+      "gain_yen": 386845,
+      "day_change_yen": 5000,
+      "weight_pct": "13.20",
+      "gain_pct": "38.24"
+    },
+    {
+      "name": "FANG+",
+      "count": 1,
+      "value_yen": 1172366,
+      "cost_yen": 900010,
+      "gain_yen": 272356,
+      "day_change_yen": 11817,
+      "weight_pct": "11.07",
+      "gain_pct": "30.26"
+    },
+    {
+      "name": "インド株",
+      "count": 1,
+      "value_yen": 47812,
+      "cost_yen": 50004,
+      "gain_yen": -2192,
+      "day_change_yen": -437,
+      "weight_pct": "0.45",
+      "gain_pct": "-4.38"
+    }
+  ],
+  "csv_sections": {
+    "全体": {
+      "expected_count": null,
+      "summary": {
+        "value_yen": 10592284,
+        "gain_yen": 3364140,
+        "gain_pct_csv": "46.54",
+        "day_change_yen": 42563,
+        "day_change_pct_csv": "0.4"
+      }
+    },
+    "特定預り": {
+      "expected_count": 2,
+      "summary": {
+        "value_yen": 2510566,
+        "gain_yen": 563656,
+        "gain_pct_csv": "28.95",
+        "day_change_yen": 6394,
+        "day_change_pct_csv": "0.26"
+      }
+    },
+    "NISA (成長)預り": {
+      "expected_count": 2,
+      "summary": {
+        "value_yen": 430832,
+        "gain_yen": 19306,
+        "gain_pct_csv": "4.69",
+        "day_change_yen": 933,
+        "day_change_pct_csv": "0.22"
+      }
+    },
+    "NISA (つみたて)預り": {
+      "expected_count": 3,
+      "summary": {
+        "value_yen": 4284885,
+        "gain_yen": 1184837,
+        "gain_pct_csv": "38.22",
+        "day_change_yen": 25083,
+        "day_change_pct_csv": "0.59"
+      }
+    },
+    "旧NISA預り": {
+      "expected_count": 2,
+      "summary": {
+        "value_yen": 2169611,
+        "gain_yen": 969582,
+        "gain_pct_csv": "80.8",
+        "day_change_yen": 6512,
+        "day_change_pct_csv": "0.3"
+      }
+    },
+    "ジュニアNISA-旧NISA預り": {
+      "expected_count": 2,
+      "summary": {
+        "value_yen": 1196390,
+        "gain_yen": 626759,
+        "gain_pct_csv": "110.03",
+        "day_change_yen": 3641,
+        "day_change_pct_csv": "0.31"
+      }
+    }
+  },
+  "validation": "passed"
+}
