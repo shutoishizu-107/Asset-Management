@@ -596,23 +596,55 @@
       "オール・カントリー": 50000,
       "FANG+": 50000
     },
-    "goal_tracker": {
-      "birth_year": 2003,
-      "birth_month": 1,
-      "target_age": 35,
-      "target_yen": 100000000,
-      "contributions_yen": {
-        "through_age_25": 150000,
-        "age_26_to_29": 200000,
-        "age_30_plus_base": 200000,
-        "age_30_plus_tentative": 250000
+    "nisa_snapshot": {
+      "source_date": "2026-09-25",
+      "source": "ユーザー提供のSBI画面転記。画像ファイルはプロジェクト内に未保存。",
+      "source_note": "利用可能額は画面表示値を正として保存。年間利用額、生涯利用額、保有残高から再推計しない。",
+      "annual": {
+        "growth": {
+          "used_yen": 550000,
+          "limit_yen": 2400000,
+          "remaining_yen": 1850000
+        },
+        "tsumitate": {
+          "used_yen": 800000,
+          "limit_yen": 1200000,
+          "remaining_yen": 400000
+        },
+        "total": {
+          "used_yen": 1350000,
+          "limit_yen": 3600000,
+          "remaining_yen": 2250000
+        }
       },
-      "annual_return_scenarios_pct": [
-        0,
-        3,
-        5,
-        7
-      ]
+      "lifetime": {
+        "total": {
+          "used_yen": 3511464,
+          "limit_yen": 18000000,
+          "remaining_yen": 14488536
+        },
+        "growth_sub_limit": {
+          "used_yen": 411501,
+          "limit_yen": 12000000,
+          "remaining_yen": 11588499
+        }
+      },
+      "monthly_contributions_yen": {
+        "current": {
+          "tsumitate": 100000,
+          "growth": 50000
+        },
+        "age_26_plus": {
+          "tsumitate": 100000,
+          "growth": 100000
+        },
+        "age_30_plus_tentative": {
+          "tsumitate": 100000,
+          "growth": 150000,
+          "split_note": "合計25万円の仮置き。内訳は試算上の配分で、本人申告による確定設定ではない。"
+        }
+      },
+      "projection_note": "画面の生涯利用可能額から、年齢別の月額をNISA対象商品で全額利用する仮定。将来の売却による枠再利用、対象外商品、他金融機関利用、年ごとの積立変更は考慮しない。上限到達後の積立は特定口座に回す。"
     },
     "handover_reference": {
       "fund_value_yen": 10592284,
@@ -623,7 +655,31 @@
     "projection_note": "引継ぎ文書の積立額を使った配分の機械的試算。既存資産を保有し、新規積立を追加する前提。価格変動・分配金・税・費用は織り込まない。銀行残高を含まない。各口座への振り分けやNISA枠の可否は計算しない。将来の収益予測ではない。",
     "reference_note": "引継ぎ文書の参考値は2026-09-26時点。CSV由来の確認値と区別し、後日のCSVに銀行残高を足し合わせない。"
   },
-  "assumptions_sha256": "fd99ca28b556363843810e7f15ecc147cf653b89634d8b90df0ea5eecee90315",
+  "profile": {
+    "birth_year": 2003,
+    "birth_month": 1,
+    "ownership_note": "保有CSVにはジュニアNISAが含まれる。名義と本人への帰属は未確認。"
+  },
+  "goals": {
+    "target_age": 35,
+    "target_yen": 100000000,
+    "contributions_yen": {
+      "through_age_25": 150000,
+      "age_26_to_29": 200000,
+      "age_30_plus_base": 200000,
+      "age_30_plus_tentative": 250000
+    },
+    "annual_return_scenarios_pct": [
+      4,
+      6,
+      8,
+      10,
+      12
+    ]
+  },
+  "assumptions_sha256": "0d77c37ed70deef5ff33ae7e785d22d5e53633dfd4cb2e8b2520cd19a38aae5b",
+  "profile_sha256": "ca13a646b0ba100b000bef816bf7366b9e22014850f62b9aedd1b2dbb9c15266",
+  "goals_sha256": "4175e287349f71dac003c2f1802cefaff7a0658e0bc4c54fa9135c782bf3f13d",
   "fund_candidates": {
     "source": "ユーザー提供の比較メモ（ChatGPTで再作成した候補表）",
     "source_date": "2026-09-26",
@@ -637,6 +693,56 @@
       "SBI・V・全世界（除く米国）",
       "SBI-iShares Gold Hなし"
     ],
+    "nisa_eligibility": {
+      "eMAXIS Slim オルカン": {
+        "tsumitate": "対象",
+        "growth": "対象",
+        "role": "長期コア。利用可能なら非課税枠を優先する候補。",
+        "taxable": "枠満額後も特定口座で保有・積立可能",
+        "verified_date": "2026-09-26",
+        "source_url": "https://emaxis.am.mufg.jp/fund/253425.html"
+      },
+      "eMAXIS Slim S&P500": {
+        "tsumitate": "対象",
+        "growth": "対象",
+        "role": "米国上乗せ。コアと合わせた集中度を確認。",
+        "taxable": "枠満額後も特定口座で保有・積立可能",
+        "verified_date": "2026-09-26",
+        "source_url": "https://emaxis.am.mufg.jp/fund/253266.html"
+      },
+      "ニッセイNASDAQ100": {
+        "tsumitate": "対象表示なし",
+        "growth": "対象",
+        "role": "成長サテライト候補。成長投資枠の利用を検討。",
+        "taxable": "枠満額後も特定口座で保有・積立可能",
+        "verified_date": "2026-09-26",
+        "source_url": "https://www.nam.co.jp/fundinfo/nn100if/memo.html"
+      },
+      "Tracers S&P1000": {
+        "tsumitate": "対象表示なし",
+        "growth": "対象",
+        "role": "サイズ分散候補。成長投資枠の利用を検討。",
+        "taxable": "枠満額後も特定口座で保有・積立可能",
+        "verified_date": "2026-09-26",
+        "source_url": "https://www.amova-am.com/fund/detail/645127"
+      },
+      "SBI・V・全世界（除く米国）": {
+        "tsumitate": "未確認",
+        "growth": "未確認",
+        "role": "対象枠を販売会社で確認後に配分。",
+        "taxable": "特定口座でも選択可能",
+        "verified_date": "2026-09-26",
+        "source_url": "https://apl.wealthadvisor.jp/webasp/sbi_am/pc/basic/sa_2025073104.html"
+      },
+      "SBI-iShares Gold Hなし": {
+        "tsumitate": "未確認",
+        "growth": "未確認",
+        "role": "対象枠を販売会社で確認後に配分。",
+        "taxable": "特定口座でも選択可能",
+        "verified_date": "2026-09-26",
+        "source_url": "https://apl.wealthadvisor.jp/webasp/sbi_am/pc/basic/sa_202306080A.html"
+      }
+    },
     "items": [
       {
         "fund": "eMAXIS Slim オルカン",
@@ -837,8 +943,8 @@
       }
     ]
   },
-  "fund_candidates_sha256": "5ec8ed38949ecaeef2e620b0b7537476d10e130de602ac6c5bc3865b76e18cb0",
-  "handover_sha256": "041a9a34d13bd9d75b4f89ed7a9162ee6135ec5502723ddd52b6c23b51b7725b",
+  "fund_candidates_sha256": "4b7a5e646db4b96bbed204ca21013e15d6aac198f9d056bb8ac7ecd3f9059c5c",
+  "handover_sha256": "0501a7bfa677437c58efd50cc3f28bb88325d014cc6ff67f9d62e51771197437",
   "snapshot_count": 1,
   "history": {
     "orders": {
@@ -5008,7 +5114,7 @@
         "title": "金融庁：NISAを知る",
         "url": "https://www.fsa.go.jp/policy/nisa2/know/index.html",
         "accessed": "2026-09-26",
-        "claim": "制度説明への参照。個人の利用可能枠・年間買付額は本レポートでは確定しない。"
+        "claim": "NISA制度の一般的な説明。個人の利用可能額は2026-09-25のSBI画面転記を入力値として使用。"
       }
     ],
     "asset_estimate": [
@@ -5027,48 +5133,7 @@
         "value_yen": "721242.00",
         "weight_pct": "6.81"
       }
-    ],
-    "stress": [
-      {
-        "category": "S&P500系",
-        "shock_pct": -35,
-        "current_yen": 5088751,
-        "change_yen": -1781063,
-        "after_yen": 3307688
-      },
-      {
-        "category": "8資産均等型",
-        "shock_pct": -15,
-        "current_yen": 2884968,
-        "change_yen": -432745,
-        "after_yen": 2452223
-      },
-      {
-        "category": "オール・カントリー",
-        "shock_pct": -30,
-        "current_yen": 1398387,
-        "change_yen": -419516,
-        "after_yen": 978871
-      },
-      {
-        "category": "FANG+",
-        "shock_pct": -50,
-        "current_yen": 1172366,
-        "change_yen": -586183,
-        "after_yen": 586183
-      },
-      {
-        "category": "インド株",
-        "shock_pct": -40,
-        "current_yen": 47812,
-        "change_yen": -19125,
-        "after_yen": 28687
-      }
-    ],
-    "stress_change_yen": -3238632,
-    "stress_change_pct": "-30.58",
-    "condition": "生活防衛資金・近い将来の支出を別途確保し、長期投資を継続できるかを配分選択前に確認する。",
-    "method": "目標達成の収益は保証されず、積立額・運用期間・リスク許容度を分けて検討する。"
+    ]
   },
   "csv_outputs": {
     "holdings": "保有明細_20260926_20260926.csv",

@@ -239,6 +239,10 @@ def run(root, output_root=None, assumptions_path=None, history_source_dir=None):
     output_root = output_root or root
     assumptions_path = assumptions_path or root / 'docs/analysis_assumptions.json'
     assumptions = json.loads(assumptions_path.read_text(encoding='utf-8-sig'))
+    profile_path = root / 'config/profile.json'
+    goals_path = root / 'config/goals.json'
+    profile = json.loads(profile_path.read_text(encoding='utf-8-sig'))
+    goals = json.loads(goals_path.read_text(encoding='utf-8-sig'))
     candidate_path = root / 'docs/fund_candidates.json'
     fund_candidates = json.loads(candidate_path.read_text(encoding='utf-8-sig'))
     paths = sorted((root / 'data/raw/csv').glob('保有状況_????????_????????.csv')) + sorted((root / 'data/raw/csv').glob('fundHoldings_*.csv'))
@@ -294,17 +298,23 @@ def run(root, output_root=None, assumptions_path=None, history_source_dir=None):
         write_csv(folders['processed'] / export_names['comparison'], comparison['rows'])
     handover = (root / 'docs/handover.md').read_bytes()
     run_info = dict(snapshot=current, comparison=comparison, projection=projection, assumptions=assumptions,
+        profile=profile, goals=goals,
         assumptions_sha256=hashlib.sha256(assumptions_path.read_bytes()).hexdigest(),
+        profile_sha256=hashlib.sha256(profile_path.read_bytes()).hexdigest(),
+        goals_sha256=hashlib.sha256(goals_path.read_bytes()).hexdigest(),
         fund_candidates=fund_candidates, fund_candidates_sha256=hashlib.sha256(candidate_path.read_bytes()).hexdigest(),
         handover_sha256=hashlib.sha256(handover).hexdigest(), snapshot_count=len(snapshots))
     run_info.update(history=history, diagnosis=diagnostic, csv_outputs=export_names)
     for name, rows in {'orders': history['orders']['records'], 'executions': history['trades']['records'], 'history_monthly': history['monthly'], 'order_execution_matches': history['reconciliation'], 'unit_bridge': history['unit_bridge']}.items():
         write_csv(folders['processed'] / export_names[name], rows)
     write_json(folders['processed'] / f'{tag}_analysis.json', run_info)
-    from reporting import render_report, render_charts, render_index
+    from reporting import render_dashboard, render_report, render_charts, render_index
     (folders['monthly'] / f'資産分析_{tag[:6]}.html').write_text(render_report(run_info, tag), encoding='utf-8')
     (folders['charts'] / f'資産配分_{tag[:6]}.html').write_text(render_charts(run_info), encoding='utf-8')
-    (output_root / 'reports/index.html').write_text(render_index(run_info, tag), encoding='utf-8')
+    monthly_reports = sorted(path.name for path in folders['monthly'].glob('資産分析_*.html'))
+    chart_reports = sorted(path.name for path in folders['charts'].glob('資産配分_*.html'))
+    (output_root / 'index.html').write_text(render_dashboard(run_info, tag), encoding='utf-8')
+    (output_root / 'reports/index.html').write_text(render_index(run_info, tag, monthly_reports, chart_reports), encoding='utf-8')
     return run_info
 
 
