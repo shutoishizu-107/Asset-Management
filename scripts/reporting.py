@@ -1,6 +1,5 @@
 """Self-contained offline HTML reports with tables and interactive charts."""
 from html import escape
-import json
 from analyze_holdings import percentage
 
 COLORS = ['#246bce', '#087e8b', '#9a6617', '#9052bb', '#d05d43', '#576477']
@@ -60,53 +59,6 @@ def render_charts(info):
     return page('資産配分グラフ', header(s, '資産配分グラフ') + '<section>' + charts_body(s) + '<p class="muted">分母はCSV内の投資信託評価額。銀行預金を含みません。商品グループはファンド名による分類で、内部の地域・資産配分ではありません。</p></section><footer>出典：' + escape(s['source_file']) + '</footer>')
 
 
-def projection_section(info):
-    rows = info['projection']
-    assumptions = info['assumptions']
-    categories = [r['name'] for r in info['snapshot']['categories']]
-    monthly = assumptions['monthly_contributions_yen']
-    table = '<div class="scroll"><table><thead><tr><th>期間</th><th>評価額の仮定（円）</th>' + ''.join('<th>' + escape(n) + '</th>' for n in categories) + '</tr></thead><tbody>'
-    for months in (0, 12, 36, 60):
-        part = {r['category']: r for r in rows if r['months'] == months}
-        total = next(iter(part.values()))['total_yen']
-        table += f'<tr><td>{"現在" if months == 0 else str(months // 12) + "年後"}</td><td>{yen(total)}</td>' + ''.join(f'<td>{part[n]["weight_pct"]}%</td>' for n in categories) + '</tr>'
-    table += '</tbody></table></div>'
-    options = ''.join('<option value="' + escape(n, quote=True) + '">' + escape(n) + '</option>' for n in info['diagnosis']['plans'])
-    plan = '、'.join(f'{escape(k)} 月{yen(v)}円' for k, v in monthly.items())
-    return '<section id="projection"><h2>積立だけによる配分の変化</h2>' + f'<p>前提：{plan}。月額合計 {yen(sum(monthly.values()))}円。出典：引継ぎ文書（{escape(assumptions["source_date"])}）。</p><p class="muted">' + escape(assumptions['projection_note']) + '</p>' + table + '<h3>積立案と期間を変更して確認</h3><p><label for="plan">積立案 </label><select id="plan">' + options + '</select></p><div class="slider"><label for="months">積立期間</label><input id="months" type="range" min="0" max="60" value="12" step="1"><output id="month-label" for="months">12か月</output></div><p id="projected-total" aria-live="polite"></p><div id="projection-bars"></div><noscript>JavaScriptが無効な場合も、上の表で1・3・5年後を確認できます。</noscript></section>'
-
-
-def projection_script(info):
-    payload = {'categories': info['snapshot']['categories'], 'monthly': info['assumptions']['monthly_contributions_yen'], 'colors': COLORS, 'plans': info['diagnosis']['plans']}
-    data = json.dumps(payload, ensure_ascii=True).replace('<', '\\u003c')
-    return '<script>\nconst data=' + data + ''';
-const slider=document.getElementById('months');
-const planSelector=document.getElementById('plan');
-const fmt=new Intl.NumberFormat('ja-JP');
-function update(){
-  const m=Number(slider.value);
-  const monthly=data.plans[planSelector.value];
-  const values=data.categories.map(r=>({...r,value:r.value_yen+m*(monthly[r.name]||0)}));
-  const total=values.reduce((s,r)=>s+r.value,0);
-  document.getElementById('month-label').textContent=m+'か月';
-  document.getElementById('projected-total').textContent='価格不変の仮定で '+fmt.format(total)+' 円';
-  const target=document.getElementById('projection-bars');target.replaceChildren();
-  values.forEach((r,i)=>{
-    const weight=total?r.value/total*100:0;
-    const row=document.createElement('div');row.className='barrow';
-    const head=document.createElement('div');head.className='barhead';
-    const name=document.createElement('span');name.textContent=r.name;
-    const number=document.createElement('strong');number.textContent=weight.toFixed(2)+'%';
-    head.append(name,number);
-    const track=document.createElement('div');track.className='track';
-    const fill=document.createElement('div');fill.className='fill';fill.style.width=weight+'%';fill.style.background=data.colors[i%data.colors.length];
-    track.append(fill);row.append(head,track);target.append(row);
-  });
-}
-slider.addEventListener('input',update);planSelector.addEventListener('change',update);update();
-</script>'''
-
-
 def render_report(info, tag):
     s, assumptions = info['snapshot'], info['assumptions']
     t, ref = s['totals'], assumptions['handover_reference']
@@ -115,7 +67,7 @@ def render_report(info, tag):
     fang = groups.get('FANG+', {}).get('value_yen', 0)
     gain_gap = t['gain_yen'] - ref['fund_gain_yen']
     body = header(s, '保有資産 分析レポート')
-    body += '<nav><a href="#allocation">配分</a><a href="#funds">ファンド別</a><a href="#accounts">口座別</a><a href="#history">注文・約定</a><a href="#recommendation">推奨配分</a><a href="#projection">積立試算</a><a href="#quality">確認事項</a></nav><br><div class="cards">'
+    body += '<nav><a href="#allocation">配分</a><a href="#funds">ファンド別</a><a href="#accounts">口座別</a><a href="#history">注文・約定</a><a href="#diagnosis">リスク診断</a><a href="#goal">1億円の積立案</a><a href="#fund-universe">候補一覧</a><a href="#quality">確認事項</a></nav><br><div class="cards">'
     for label, value, unit in [('投資信託 評価額', yen(t['value_yen']), '円'), ('取得金額', yen(t['cost_yen']), '円'), ('評価損益', yen(t['gain_yen'], True), '円'), ('取得金額に対する損益率', t['gain_pct'] or '—', '%')]:
         body += f'<div class="card"><div class="label">{label}</div><div class="number">{value}<span class="unit">{unit}</span></div></div>'
     body += '</div><section><h2>今回確認できたこと</h2><ul>'
@@ -128,7 +80,6 @@ def render_report(info, tag):
     from history_report import render_history, render_diagnosis
     body += render_history(info)
     body += render_diagnosis(info)
-    body += projection_section(info)
     body += '<section><h2>前回データとの比較</h2>'
     if info['comparison'] is None:
         body += '<p>独立した出力時点は1件のため、今回は比較できません。次の日時のCSVを追加すると、前回出力時点との評価額・取得金額・評価損益・口数の差分を生成します。</p>'
@@ -147,12 +98,12 @@ def render_report(info, tag):
     for h in s['holdings']:
         body += '<tr><td>' + escape(h['account'] + ' / ' + h['fund']) + '</td>' + ''.join('<td>' + yen(h[key], key == 'gain_yen') + '</td>' for key in ('units', 'value_yen', 'cost_yen', 'gain_yen')) + '<td>' + escape(h['accumulation_marker'] or '空欄') + '</td></tr>'
     body += '</tbody></table></div><p>入力：' + escape(s['source_file']) + '</p><p class="mono">SHA-256: ' + s['source_sha256'] + '</p></details></section>'
-    body += f'<footer>出典：<a href="../../data/raw/csv/{escape(s["source_file"], quote=True)}">保有状況CSV</a> / <a href="../../docs/handover.md">引継ぎ文書</a> / <a href="../../docs/analysis_assumptions.json">試算前提</a> / <a href="../../data/processed/{tag}_analysis.json">分析結果JSON</a>。HTMLの表示と試算は外部通信なしで動作します。公式資料リンクを開く場合はWebにアクセスします。</footer>'
-    return page('保有資産 分析レポート ' + s['export_timestamp_inferred'][:10], body, projection_script(info))
+    body += f'<footer>出典：<a href="../../data/raw/csv/{escape(s["source_file"], quote=True)}">保有状況CSV</a> / <a href="../../docs/handover.md">引継ぎ文書</a> / <a href="../../docs/analysis_assumptions.json">試算前提</a> / <a href="../../docs/fund_candidates.json">ファンド比較入力</a> / <a href="../../data/processed/{tag}_analysis.json">分析結果JSON</a>。HTMLの表示と試算は外部通信なしで動作します。公式資料リンクを開く場合はWebにアクセスします。</footer>'
+    return page('保有資産 分析レポート ' + s['export_timestamp_inferred'][:10], body)
 
 
 def render_index(info, tag):
     s = info['snapshot']
     body = header(s, '資産運用レポート')
-    body += '<section><h2>最新レポート</h2><p><a href="monthly/資産分析_' + tag[:6] + '.html">保有資産の分析・注文と約定の実績・ポートフォリオ診断・推奨配分を見る</a></p><p><a href="charts/資産配分_' + tag[:6] + '.html">資産配分グラフを開く</a></p><p>積立案と期間を変更する試算は、分析レポート内で利用できます。</p></section>'
+    body += '<section><h2>最新レポート</h2><p><a href="monthly/資産分析_' + tag[:6] + '.html">保有資産の分析・注文と約定の実績・1億円目標の積立案を見る</a></p><p><a href="charts/資産配分_' + tag[:6] + '.html">資産配分グラフを開く</a></p></section>'
     return page('資産運用レポート', body)

@@ -239,6 +239,8 @@ def run(root, output_root=None, assumptions_path=None, history_source_dir=None):
     output_root = output_root or root
     assumptions_path = assumptions_path or root / 'docs/analysis_assumptions.json'
     assumptions = json.loads(assumptions_path.read_text(encoding='utf-8-sig'))
+    candidate_path = root / 'docs/fund_candidates.json'
+    fund_candidates = json.loads(candidate_path.read_text(encoding='utf-8-sig'))
     paths = sorted((root / 'data/raw/csv').glob('保有状況_????????_????????.csv')) + sorted((root / 'data/raw/csv').glob('fundHoldings_*.csv'))
     if not paths:
         raise ValueError('No holdings snapshots in data/raw/csv')
@@ -274,7 +276,6 @@ def run(root, output_root=None, assumptions_path=None, history_source_dir=None):
         'history_monthly': ('注文約定月次集計', min(order_start, trade_start), max(order_end, trade_end)),
         'order_execution_matches': ('注文約定照合', trade_start, trade_end),
         'unit_bridge': ('保有口数照合', trade_start, day_label),
-        'portfolio_scenarios': ('推奨配分比較試算', day_label, future_label),
     }
     if comparison:
         spans['comparison'] = ('保有状況差分', comparison['previous_export_timestamp_inferred'][:10].replace('-', ''), day_label)
@@ -294,9 +295,10 @@ def run(root, output_root=None, assumptions_path=None, history_source_dir=None):
     handover = (root / 'docs/handover.md').read_bytes()
     run_info = dict(snapshot=current, comparison=comparison, projection=projection, assumptions=assumptions,
         assumptions_sha256=hashlib.sha256(assumptions_path.read_bytes()).hexdigest(),
+        fund_candidates=fund_candidates, fund_candidates_sha256=hashlib.sha256(candidate_path.read_bytes()).hexdigest(),
         handover_sha256=hashlib.sha256(handover).hexdigest(), snapshot_count=len(snapshots))
     run_info.update(history=history, diagnosis=diagnostic, csv_outputs=export_names)
-    for name, rows in {'orders': history['orders']['records'], 'executions': history['trades']['records'], 'history_monthly': history['monthly'], 'order_execution_matches': history['reconciliation'], 'unit_bridge': history['unit_bridge'], 'portfolio_scenarios': diagnostic['scenarios']}.items():
+    for name, rows in {'orders': history['orders']['records'], 'executions': history['trades']['records'], 'history_monthly': history['monthly'], 'order_execution_matches': history['reconciliation'], 'unit_bridge': history['unit_bridge']}.items():
         write_csv(folders['processed'] / export_names[name], rows)
     write_json(folders['processed'] / f'{tag}_analysis.json', run_info)
     from reporting import render_report, render_charts, render_index

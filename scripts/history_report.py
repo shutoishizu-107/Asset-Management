@@ -1,7 +1,7 @@
 """HTML sections for execution evidence and provisional portfolio recommendations."""
+from datetime import date, datetime
 from html import escape
-from reporting import yen, pct, bars
-from analyze_holdings import percentage
+from reporting import yen, pct
 
 
 def simple_table(headers, rows):
@@ -39,45 +39,109 @@ def render_history(info):
     return body
 
 
+def goal_projection(start_value, as_of, annual_return_pct, raise_at_30, goal):
+    current_date = datetime.strptime(as_of[:10], '%Y-%m-%d').date()
+    month = date(current_date.year + (current_date.month == 12), current_date.month % 12 + 1, 1)
+    target_month = date(goal['birth_year'] + goal['target_age'], goal['birth_month'], 1)
+    monthly_rate = (1 + annual_return_pct / 100) ** (1 / 12) - 1
+    value = float(start_value)
+    contributions = 0
+    months = 0
+    while month < target_month:
+        age = month.year - goal['birth_year'] - (month.month < goal['birth_month'])
+        steps = goal['contributions_yen']
+        if age < 26:
+            monthly = steps['through_age_25']
+        elif age < 30:
+            monthly = steps['age_26_to_29']
+        else:
+            monthly = steps['age_30_plus_tentative'] if raise_at_30 else steps['age_30_plus_base']
+        value = value * (1 + monthly_rate) + monthly
+        contributions += monthly
+        months += 1
+        month = date(month.year + (month.month == 12), month.month % 12 + 1, 1)
+    return {'value_yen': round(value), 'contributions_yen': contributions, 'months': months}
+
+
+def required_goal_return(start_value, as_of, raise_at_30, goal):
+    low, high = 0.0, 100.0
+    for _ in range(64):
+        middle = (low + high) / 2
+        if goal_projection(start_value, as_of, middle, raise_at_30, goal)['value_yen'] < goal['target_yen']:
+            low = middle
+        else:
+            high = middle
+    return high
+
+
+def render_goal_and_funds(info):
+    snapshot = info['snapshot']
+    goal = info['assumptions']['goal_tracker']
+    candidate_input = info['fund_candidates']
+    start_value = snapshot['totals']['value_yen']
+    as_of = snapshot['export_timestamp_inferred']
+    target_date = date(goal['birth_year'] + goal['target_age'], goal['birth_month'], 1)
+    target_label = f'{target_date.year}年{target_date.month}月'
+    target_amount = '1億円' if goal['target_yen'] == 100000000 else yen(goal['target_yen']) + '円'
+    body = f'<section id="goal"><h2>{goal["target_age"]}歳で{target_amount}を目指す積立案</h2>'
+    body += f'<p>本人申告：{goal["birth_year"]}年{goal["birth_month"]}月生まれ。年齢は誕生月単位で概算し、目標時点は{target_label}、積立はその前月までとして計算します。</p>'
+    steps = goal['contributions_yen']
+    body += simple_table(['期間', '月額', '位置づけ'], [['現在～25歳', yen(steps['through_age_25']) + '円', '本人の想定'], ['26～29歳', yen(steps['age_26_to_29']) + '円', '本人の想定'], ['30歳以降', yen(steps['age_30_plus_base']) + '円 / ' + yen(steps['age_30_plus_tentative']) + '円', '25万円は検討中の比較ケース']])
+    body += '<p>現在の出発点は、今回の保有状況CSVにある投資信託評価額 ' + yen(start_value) + '円（出力日 ' + escape(as_of[:10]) + '）。銀行残高は含みません。CSVにはジュニアNISAを含み、資産の名義・本人帰属が未確認のため、全額を本人の目標資産に算入できるとは限りません。</p>'
+    body += '<p class="muted">試算は毎月末積立、月次複利、税・費用なし、評価額が一定率で増減する単純モデルです。年率は予測や期待リターンではありません。各シナリオは目標達成を保証せず、価格変動・為替・積立継続可否・家計状況を反映しません。</p>'
+    scenarios = []
+    for rate in goal['annual_return_scenarios_pct']:
+        base = goal_projection(start_value, as_of, rate, False, goal)
+        increased = goal_projection(start_value, as_of, rate, True, goal)
+        scenarios.append([f'{rate}%', yen(base['value_yen']) + '円', yen(increased['value_yen']) + '円'])
+    body += simple_table(['仮定年率', '26歳以降 月20万円', '30歳以降 月25万円（検討中）'], scenarios)
+    base = goal_projection(start_value, as_of, 0, False, goal)
+    increased = goal_projection(start_value, as_of, 0, True, goal)
+    base_return = required_goal_return(start_value, as_of, False, goal)
+    increased_return = required_goal_return(start_value, as_of, True, goal)
+    body += '<p>積立元本の追加分は、月20万円継続で ' + yen(base['contributions_yen']) + '円、30歳から月25万円の場合で ' + yen(increased['contributions_yen']) + '円です。1億円に届くための計算上の一定年率は、それぞれ約' + f'{base_return:.2f}%' + '、約' + f'{increased_return:.2f}%' + 'となります。これは達成可能性や適切なリスク水準を示すものではありません。</p>'
+    body += '<h3>配分シナリオ A～D</h3><p>以下は1億円目標に向けた新規積立の配分比較です。いずれも未採用で、購入推奨ではありません。A～Dのどれかを唯一の正解として選ぶのではなく、目標額・継続可能な積立額・許容できる値下がりから検討します。</p>'
+    amount_levels = [
+        ('月15万円', steps['through_age_25']),
+        ('月20万円', steps['age_26_to_29']),
+        ('月25万円（30歳以降・検討中）', steps['age_30_plus_tentative']),
+    ]
+    plans = [
+        ('案A：成長株を上乗せ', 'オルカンを中心に、NASDAQ100と米国中小型株を追加。', [('eMAXIS Slim オルカン', 60), ('eMAXIS Slim S&P500', 20), ('ニッセイNASDAQ100', 10), ('Tracers S&P1000', 10)]),
+        ('案B：地域分散', 'NASDAQ100を使わず、S&P1000と全世界（除く米国）を加える。', [('eMAXIS Slim オルカン', 60), ('eMAXIS Slim S&P500', 20), ('Tracers S&P1000', 10), ('SBI・V・全世界（除く米国）', 10)]),
+        ('案C：Gold 10%', '株式中心に金を10%組み合わせる。', [('eMAXIS Slim オルカン', 60), ('eMAXIS Slim S&P500', 20), ('ニッセイNASDAQ100', 10), ('SBI-iShares Gold Hなし', 10)]),
+        ('案D：Gold 5%', '新規積立の株式を95%、金を5%とする。', [('eMAXIS Slim オルカン', 65), ('eMAXIS Slim S&P500', 20), ('ニッセイNASDAQ100', 10), ('SBI-iShares Gold Hなし', 5)]),
+    ]
+    for title, description, allocations in plans:
+        body += f'<h4>{escape(title)}</h4><p>{escape(description)}</p>'
+        headers = ['ファンド', '比率'] + [label for label, _ in amount_levels]
+        rows = [[name, f'{weight}%'] + [yen(amount * weight // 100) + '円' for _, amount in amount_levels] for name, weight in allocations]
+        body += simple_table(headers, rows)
+    fang_value = sum(r['value_yen'] for r in snapshot['holdings'] if 'FANG+' in r['fund'])
+    body += '<p>既存FANG+は今回のCSVで ' + yen(fang_value) + '円です。新規積立を止める案でも保有分は残り、その扱いは別途判断します。現在の8資産均等型の保有も残るため、D案の「株式95%＋Gold5%」は新規積立額の構成であり、資産全体の構成ではありません。</p>'
+    body += '<p class="notice">積立額の段階的な増額自体が目標達成に向けた大きな要素です。1億円を理由にFANG+などへ集中を高める必要がある、とこの試算から結論づけることはできません。30歳以降の25万円、本人帰属資産の範囲、現金・近い将来の支出を確認してから案を選ぶ前提です。</p></section>'
+    body += '<section id="fund-universe"><h2>ファンド候補の比較入力</h2><p>重点比較候補はオルカン、S&amp;P500、NASDAQ100、S&amp;P1000、全世界（除く米国）、Gold Hなしの6本です。以下の一覧はユーザー提供の検討用入力で、コスト・重複・分散評価は未検証の目安です。原入力は <a href="../../docs/fund_candidates.json">docs/fund_candidates.json</a> に保存しています。</p>'
+    body += '<details><summary>候補21本と評価軸を表示</summary>'
+    body += simple_table(['ファンド', '投資対象', 'コスト目安（入力）', '既存PFとの重複', '分散効果', '主な役割', '検討位置'], [[r['fund'], r['investment_target'], r['cost_estimate'], r['existing_overlap'], r['diversification'], r['main_role'], r['consideration']] for r in candidate_input['items']])
+    body += '<p class="muted">' + escape(candidate_input['status_note']) + ' SBI-iShares全世界債券は、入力値の約0.14～0.16%に対し、2026-09-26確認の公式資料では実質約0.1838%程度と差があり、要再確認です。<a href="https://www.sbiam.co.jp/fund/memo/sa_2013051304.html">SBIアセットマネジメント公式費用資料</a></p></details></section>'
+    return body
+
+
 def render_diagnosis(info):
     d, s = info['diagnosis'], info['snapshot']
-    current = {r['name']: r for r in s['categories']}
-    scenarios = d['scenarios']
     source = lambda i: '<a href="' + escape(d['sources'][i]['url'], quote=True) + '">' + escape(d['sources'][i]['title']) + '</a>'
     body = '<section id="diagnosis"><h2>ポートフォリオ診断</h2><h3>成長性を重視した構成。今後の集中を調整する余地があります</h3>'
-    body += '<p>長期・月次積立という方針は履歴でも確認できました。一方で、今の新規積立の3分の1がFANG+に向かう配分を続けると、保有比率の11%程度を超えて集中が強まります。10銘柄に集中する商品の位置付けを、資産全体の中心ではなく追加の成長枠に限定する案を推奨します。FANG+の集中投資リスクは運用会社も明示しています。' + source(0) + '</p>'
+    body += '<p>現在の積立設定はS&amp;P500、オール・カントリー、FANG+が各月5万円という前提です。FANG+は投資信託評価額の11.07%を占め、現在の設定を続けると新規積立の3分の1が同商品に向かいます。集中投資リスクは運用会社も説明しています。' + source(0) + '</p>'
     body += '<p>オール・カントリーを積立の中心にすると、米国への投資を残しながら他の先進国・新興国への投資も増やせます。ただし、S&P500やFANG+との銘柄重複を解消する商品ではありません。正確な重複率・米国比率は、同じ基準日の組入明細が未取得のため算出していません。' + source(1) + '</p>'
     body += '<h3>8資産均等型の27%を、そのまま安全資産とは見なしません</h3><p>基本配分は株式3資産・債券3資産・REIT2資産が各12.5%です。この基本配分と、その他の保有ファンドを株式100%とする仮定で分解すると、投資信託全体は次の概算になります。実際の当日組入比率ではありません。' + source(2) + '</p>'
     body += simple_table(['資産区分（推計）', '投資信託全体に占める割合'], [[r['name'], pct(r['weight_pct'])] for r in d['asset_estimate']])
     body += '<p>債券・REITにも値下がりや為替変動があります。生活費や近い将来の支出に備える現金とは分けて管理します。</p>'
     body += '</section>'
-    body += '<section id="recommendation"><h2>今後の推奨ポートフォリオ（暫定案）</h2><p>' + escape(d['condition']) + '</p><p>' + escape(d['method']) + '</p>'
-    body += '<h3>5年程度で近づける商品配分の目安</h3>'
-    body += simple_table(['商品グループ', '現在', '中期目安'], [[n, pct(current.get(n, {}).get('weight_pct')), f'{v}%'] for n, v in d['target_pct'].items()])
-    body += '<p class="muted">分母は投資信託全体、現金は別管理。目安は合計100%。インド株の既存分は保有を継続し、1%未満の残存を許容します。家族名義のジュニアNISA資産は移動せず、家族全体を集計する場合の目安として扱います。</p>'
-    body += '<h3>毎月15万円の振り分け</h3>'
-    categories = ['S&P500系', 'オール・カントリー', 'FANG+', '8資産均等型']
-    body += simple_table(['積立案'] + categories, [[name] + [yen(plan.get(n, 0)) + '円' for n in categories] for name, plan in d['plans'].items()])
-    body += '<p><strong>推奨案はオール・カントリー9万円、S&P500 4万5千円、FANG+ 1万5千円です。</strong>既存資産を保有しながら、新規積立で徐々に配分を変えます。インド株は今回の案では新規積立しません。これは新興国の将来性の予測ではなく、全世界株式を通じた保有に寄せるための整理です。</p>'
-    recommended_balance = next(r for r in scenarios if r['plan'].startswith('推奨案') and r['months'] == 60 and r['category'] == '8資産均等型')
-    from decimal import Decimal
-    future_equity = percentage(Decimal(recommended_balance['total_yen']) - Decimal(recommended_balance['value_yen']) * Decimal('.625'), recommended_balance['total_yen'])
-    body += '<p class="notice">集中の緩和は、総リスクの低下と同じではありません。推奨案でも8資産均等型への追加積立を止めるため、基本配分による株式比率の概算は現在約83%から5年後約' + future_equity + '%へ上がります。株式全体の下落に備える必要がある場合は、比較案や現金の確保を選んでください。</p>'
-    body += '<p>推奨案も株式中心です。大きな下落への不安が強い場合は8資産均等型にも月3万円を回す比較案を検討し、さらに現金・債券の必要量を家計から決めます。生活防衛資金が未確保なら、月15万円の投資継続より現金確保を優先します。</p>'
-    body += '<h3>新規積立で配分を変更した場合</h3><p class="muted">価格変動・分配・税・費用なしの機械的比較。将来リターン予測ではありません。</p>'
-    names = [r['name'] for r in s['categories']]
-    display = []
-    for plan in d['plans']:
-        for months in (12, 36, 60):
-            part = {r['category']: r for r in scenarios if r['plan'] == plan and r['months'] == months}
-            display.append([plan, str(months // 12) + '年後'] + [pct(part[n]['weight_pct']) for n in names])
-    body += simple_table(['積立案', '期間'] + names, display)
-    body += '<p>年1回、またはFANG+が15%を超えたときに配分を点検する運用ルールを提案します。値上がりだけを理由に積立額を増やさず、まず新規積立先で調整します。8資産均等型が15%程度まで下がったら、その後の積立にも配分して維持するか再検討します。これらの閾値も今回の提案です。</p>'
-    body += '<p>NISA枠はこのCSVの保有取得金額から残額を推定せず、証券会社の利用可能枠を確認して振り分けます。制度の確認先：' + source(4) + '</p></section>'
+    body += render_goal_and_funds(info)
     body += '<section><h2>下落への耐性を金額で確認</h2><p>次は仮定の同時下落シナリオです。過去の最悪値、発生確率、最大損失の上限ではありません。為替変動は別途上乗せせず、円建ての商品価格の変動として仮定しています。</p>'
     body += simple_table(['商品グループ', '仮定する下落率', '評価額の変化（円）'], [[r['category'], str(r['shock_pct']) + '%', yen(r['change_yen'], True)] for r in d['stress']])
-    body += f'<p><strong>合計 {yen(d["stress_change_yen"], True)}円（{d["stress_change_pct"]}%）、残る評価額は {yen(s["totals"]["value_yen"] + d["stress_change_yen"])}円。</strong>この規模の下落でも生活と積立を維持できるかを、推奨案採用前の判断基準にしてください。</p></section>'
-    body += '<section><h2>公式資料と判断の区別</h2><p>以下の公式資料を2026年9月26日に参照しました。商品構造は資料に基づき、配分比率・待機資金・見直し基準・下落率は本レポートの提案または試算仮定です。将来の収益や優劣は確約しません。</p><ul>'
+    body += f'<p><strong>合計 {yen(d["stress_change_yen"], True)}円（{d["stress_change_pct"]}%）、残る評価額は {yen(s["totals"]["value_yen"] + d["stress_change_yen"])}円。</strong>この規模の下落でも生活と積立を維持できるかを、A～D案を選ぶ前に確認してください。</p></section>'
+    body += '<section><h2>公式資料と判断の区別</h2><p>以下の公式資料を2026年9月26日に参照しました。商品構造は資料に基づき、目標積立案・配分シナリオ・下落率は本人申告または本レポートの試算仮定です。将来の収益や優劣は確約しません。</p><ul>'
     for item in d['sources']:
         body += '<li><a href="' + escape(item['url'], quote=True) + '">' + escape(item['title']) + '</a>：' + escape(item['claim']) + '</li>'
     return body + '</ul></section>'
