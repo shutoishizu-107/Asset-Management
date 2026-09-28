@@ -1,0 +1,171 @@
+{
+  "schema_version": 1,
+  "funds": {
+    "VT": {
+      "fund_name": "Vanguard Total World Stock ETF",
+      "ticker": "VT",
+      "provider": "vanguard",
+      "role": "global_core",
+      "asset_class": "equity"
+    },
+    "SPGM": {
+      "fund_name": "SPDR Portfolio MSCI Global Stock Market ETF",
+      "ticker": "SPGM",
+      "provider": "spdr",
+      "role": "global_core",
+      "asset_class": "equity",
+      "official_source": "https://www.ssga.com/us/en/intermediary/etfs/funds/spdr-portfolio-msci-global-stock-market-etf-spgm"
+    },
+    "ACWI": {
+      "fund_name": "iShares MSCI ACWI ETF",
+      "ticker": "ACWI",
+      "provider": "ishares",
+      "role": "global_core",
+      "asset_class": "equity",
+      "product_id": "239600",
+      "product_slug": "ishares-msci-acwi-etf",
+      "official_source": "https://www.ishares.com/us/products/239600/ishares-msci-acwi-etf"
+    },
+    "eMAXIS Slim 全世界株式（オール・カントリー）": {
+      "fund_name": "eMAXIS Slim 全世界株式（オール・カントリー）",
+      "ticker": "eMAXIS Slim オルカン",
+      "provider": "mutual_fund_jp",
+      "role": "global_core",
+      "asset_class": "equity",
+      "official_source": "https://emaxis.am.mufg.jp/fund/253425.html"
+    },
+    "SBI・V・全世界株式": {
+      "fund_name": "SBI・V・全世界株式インデックス・ファンド",
+      "ticker": "SBI・V・全世界株式",
+      "provider": "mutual_fund_jp",
+      "role": "global_core",
+      "asset_class": "equity",
+      "official_source": "https://www.sbiam.co.jp/fund/monthly/?id=100121"
+    },
+    "VTI": {
+      "fund_name": "Vanguard Total Stock Market ETF",
+      "ticker": "VTI",
+      "provider": "vanguard",
+      "role": "us_core",
+      "asset_class": "equity"
+    },
+    "VXUS": {
+      "fund_name": "Vanguard Total International Stock ETF",
+      "ticker": "VXUS",
+      "provider": "vanguard",
+      "role": "ex_us_total",
+      "asset_class": "equity"
+    },
+    "VOO": {
+      "fund_name": "Vanguard S&P 500 ETF",
+      "ticker": "VOO",
+      "provider": "vanguard",
+      "role": "us_core",
+      "asset_class": "equity"
+    },
+    "ITOT": {
+      "fund_name": "iShares Core S&P Total U.S. Stock Market ETF",
+      "ticker": "ITOT",
+      "provider": "ishares",
+      "role": "us_core",
+      "asset_class": "equity",
+      "product_id": "239724",
+      "product_slug": "ishares-core-sp-total-us-stock-market-etf",
+      "official_source": "https://www.ishares.com/us/products/239724/ishares-core-sp-total-us-stock-market-etf"
+    },
+    "SCHB": {
+      "fund_name": "Schwab U.S. Broad Market ETF",
+      "ticker": "SCHB",
+      "provider": "schwab",
+      "role": "us_core",
+      "asset_class": "equity",
+      "official_source": "https://www.schwabassetmanagement.com/products/schb"
+    },
+    "SPTM": {
+      "fund_name": "SPDR Portfolio S&P 1500 Composite Stock Market ETF",
+      "ticker": "SPTM",
+      "provider": "spdr",
+      "role": "us_core",
+      "asset_class": "equity",
+      "official_source": "https://www.ssga.com/us/en/intermediary/etfs/funds/spdr-portfolio-sp-1500-composite-stock-market-etf-sptm"
+    }
+    ,"VEU": {
+      "fund_name": "Vanguard All-World ex-U.S. ETF",
+      "ticker": "VEU",
+      "provider": "vanguard",
+      "role": "ex_us_total",
+      "asset_class": "equity",
+      "official_source": "https://investor.vanguard.com/investment-products/etfs/profile/veu"
+    },
+    "IXUS": {
+      "fund_name": "iShares Core MSCI Total International Stock ETF",
+      "ticker": "IXUS",
+      "provider": "ishares",
+      "role": "ex_us_total",
+      "asset_class": "equity",
+      "product_id": "244048",
+      "product_slug": "ishares-core-msci-total-international-stock-etf",
+      "official_source": "https://www.ishares.com/us/products/244048/ishares-core-msci-total-international-stock-etf"
+    },
+    "ACWX": {
+      "fund_name": "iShares MSCI ACWI ex U.S. ETF",
+      "ticker": "ACWX",
+      "provider": "ishares",
+      "role": "ex_us_total",
+      "asset_class": "equity",
+      "official_source": "https://www.ishares.com/us/products/239594/ishares-msci-acwi-ex-us-etf"
+    },
+    "CWI": {
+      "fund_name": "SPDR MSCI ACWI ex US ETF",
+      "ticker": "CWI",
+      "provider": "spdr",
+      "role": "ex_us_total",
+      "asset_class": "equity",
+      "official_source": "https://www.ssga.com/us/en/intermediary/etfs/funds/spdr-msci-acwi-ex-us-etf-cwi"
+    },
+    "VEA": {
+      "fund_name": "Vanguard FTSE Developed Markets ETF",
+      "ticker": "VEA",
+      "provider": "vanguard",
+      "role": "developed_ex_us",
+      "asset_class": "equity",
+      "official_source": "https://investor.vanguard.com/investment-products/etfs/profile/vea"
+    },
+    "SPDW": {
+      "fund_name": "SPDR Portfolio Developed World ex-US ETF",
+      "ticker": "SPDW",
+      "provider": "spdr",
+      "role": "developed_ex_us",
+      "asset_class": "equity",
+      "official_source": "https://www.ssga.com/us/en/intermediary/etfs/funds/spdr-portfolio-developed-world-ex-us-etf-spdw"
+    },
+    "EFA": {
+      "fund_name": "iShares MSCI EAFE ETF",
+      "ticker": "EFA",
+      "provider": "ishares",
+      "role": "developed_ex_us",
+      "asset_class": "equity",
+      "product_id": "239623",
+      "product_slug": "ishares-msci-eafe-etf",
+      "official_source": "https://www.ishares.com/us/products/239623/ishares-msci-eafe-etf"
+    },
+    "IDEV": {
+      "fund_name": "iShares Core MSCI International Developed Markets ETF",
+      "ticker": "IDEV",
+      "provider": "ishares",
+      "role": "developed_ex_us",
+      "asset_class": "equity",
+      "product_id": "286762",
+      "product_slug": "ishares-core-msci-international-developed-markets-etf",
+      "official_source": "https://www.ishares.com/us/products/286450/ishares-core-msci-international-developed-markets-etf"
+    },
+    "SCHF": {
+      "fund_name": "Schwab International Equity ETF",
+      "ticker": "SCHF",
+      "provider": "schwab",
+      "role": "developed_ex_us",
+      "asset_class": "equity",
+      "official_source": "https://www.schwabassetmanagement.com/products/schf"
+    }
+  }
+}

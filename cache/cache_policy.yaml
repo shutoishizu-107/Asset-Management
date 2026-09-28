@@ -29,6 +29,8 @@
     "pb_ratio": 7,
     "index_region_weights": 30,
     "index_sector_weights": 30,
+    "region_weights": 30,
+    "sector_weights": 30,
     "us_weight": 30,
     "tech_weight": 30,
     "small_cap_weight": 30,

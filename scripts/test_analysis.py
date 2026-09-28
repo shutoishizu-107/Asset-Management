@@ -142,16 +142,37 @@ class AnalysisTests(unittest.TestCase):
             info = run(ROOT, Path(directory))
             report = Path(directory) / 'reports/monthly/資産分析_202609.html'
             html = report.read_text(encoding='utf-8')
-            for text in ('10,592,284', '2,750,000', 'Executive Summary', '35歳で1億円', 'NISA戦略・利用状況', '1,350,000円', '14,488,536円', '19.5%', '2033年5月', '2033年4月', '推奨ポートフォリオ設計', '全世界株コア', '小型株・バリュー', '成長株サテライト', 'API取得ファンドのmetric評価', '対象ファンドのAPI取得データはありません', '70%', '15%', '10%', '5%', '全売却'):
+            for text in ('10,592,284', '2,750,000', 'Executive Summary', '35歳で1億円', 'NISA戦略・利用状況', '1,350,000円', '14,488,536円', '19.5%', '2033年5月', '2033年4月', '推奨ポートフォリオ設計', '全世界株コア', '小型株・バリュー', '成長株サテライト', '候補ファンド比較', '70%', '15%', '10%', '5%', '全売却'):
                 self.assertIn(text, html)
+            self.assertIn('Vanguard Total World Stock ETF (VT)', html)
+            self.assertIn('経費率', html)
+            self.assertIn('0.06%', html)
+            self.assertIn('6.00 bps', html)
+            self.assertNotIn('return_3y_annualized (derived)', html)
+            self.assertNotIn('(high)', html)
+            self.assertNotIn('5.999999999999999', html)
+            self.assertIn('Provider Coverage', html)
+            self.assertIn('Scoring Methodology', html)
+            self.assertIn('href="#fund-detail-vt"', html)
+            self.assertEqual(html.count('<details id="fund-detail-'), 20)
+            comparison_start = html.index('候補ファンド比較')
+            methodology_start = html.index('id="data-methodology"')
+            self.assertNotIn('<details id="fund-detail-', html[comparison_start:methodology_start])
             for hidden_candidate_content in ('投資候補ファンド比較', '候補21本', 'ジャンル別・優先候補', '投資対象（日本語）', 'eMAXIS Slim オルカン|SBI'):
                 self.assertNotIn(hidden_candidate_content, html)
             self.assertNotIn('fund_candidates', info)
-            self.assertNotIn('fund_evaluations', info['external_data'])
+            evaluations = {item['fund_id']: item for item in info['external_data']['fund_evaluations']}
+            self.assertEqual(set(evaluations), {
+                'VT', 'VTI', 'VXUS', 'VOO', 'SPGM', 'ACWI',
+                'eMAXIS Slim 全世界株式（オール・カントリー）', 'SBI・V・全世界株式',
+                'ITOT', 'SCHB', 'SPTM', 'VEU', 'IXUS', 'ACWX', 'CWI',
+                'VEA', 'SPDW', 'EFA', 'IDEV', 'SCHF',
+            })
+            self.assertTrue(all(item['provisional'] for item in evaluations.values()))
             self.assertNotIn('portfolio_overlap', {record['metric'] for record in info['external_data']['records']})
             self.assertLess(html.index('全世界株コア'), html.index('小型株・バリュー'))
             self.assertIn('バリュー特性', html)
-            section_order = [html.index(marker) for marker in ('id="summary"', 'id="goal"', 'id="portfolio"', 'id="diagnosis"', 'id="nisa"', 'id="portfolio-options"', 'id="contributions"', 'id="existing-assets"', 'id="risk"', 'id="methodology"')]
+            section_order = [html.index(marker) for marker in ('id="summary"', 'id="goal"', 'id="portfolio"', 'id="diagnosis"', 'id="nisa"', 'id="portfolio-options"', 'id="contributions"', 'id="existing-assets"', 'id="risk"', 'id="data-methodology"')]
             self.assertEqual(section_order, sorted(section_order))
             self.assertNotIn('今後の推奨ポートフォリオ', html)
             for excluded in ('余力不足', '未完了注文額', '差引購入額', '純買付口数'):
@@ -204,10 +225,15 @@ class AnalysisTests(unittest.TestCase):
             info['external_data']['metric_priority_level'] = {'expense_ratio': 'high'}
             html = render_portfolio_options(info)
             self.assertIn('API-FUND', html)
-            self.assertIn('expense_ratio (high)', html)
-            self.assertIn('0.001 [fresh]', html)
-            self.assertIn('overlap_with_sp500', html)
-            self.assertIn('unavailable (holdings_unavailable)', html)
+            self.assertIn('候補ファンド比較', html)
+            self.assertIn('経費率', html)
+            self.assertIn('0.10%', html)
+            self.assertNotIn('S&amp;P500との重複率', html)
+            self.assertIn('data-methodology', html)
+            self.assertIn('#fund-detail-api-fund', html)
+            self.assertIn('未取得', html)
+            self.assertNotIn('expense_ratio (high)', html)
+            self.assertNotIn('overlap_with_sp500', html)
             self.assertNotIn('OLD-FUND-A', html)
 
     def test_monthly_run_prefers_immutable_external_snapshot(self):

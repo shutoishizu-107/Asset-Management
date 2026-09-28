@@ -382,6 +382,7 @@ def run(root, output_root=None, assumptions_path=None, history_source_dir=None, 
             'available_count': sum(record['status'] == 'available' for record in public_records),
             'unavailable_count': sum(record['status'] == 'unavailable' for record in public_records),
             'records': public_records,
+            'fund_evaluations': external_collection.get('fund_evaluations', []),
             'metric_priority_level': external_collection.get('metric_priority_level', {}),
         },
     )

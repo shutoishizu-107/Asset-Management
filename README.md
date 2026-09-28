@@ -106,6 +106,18 @@ python -B scripts/generate_monthly_report.py --month 2026-09
 python -B scripts/generate_monthly_report.py --month 2026-09 --refresh-external-data
 ```
 
+外部データ診断（STAGE1..STAGE7の段階集計、cache hit/stale、原因件数）:
+
+```powershell
+python -B scripts/diagnose_external_data.py --refresh-external-data
+```
+
+オフライン診断（providerへアクセスせずcache/snapshot状態だけ確認）:
+
+```powershell
+python -B scripts/diagnose_external_data.py --offline
+```
+
 オフライン実行はproviderへアクセスせず、月次snapshot、次にcacheだけを利用します。両方に値がなければ`unavailable`です。
 
 ```powershell
@@ -127,7 +139,7 @@ Remove-Item -Recurse -Force cache/funds/VT.json
 APIキーは `.env.example` を `.env` にコピーしてローカル設定します。`.env` はGit ignore対象です。キーをURL、source registry、コード、ログへ書かないでください。取得を有効にする前に、source/resource単位の利用規約、license、cache/publication権限、rate limit、request budgetを確認します。未確認なら取得せず、HTML scrapingもしません。raw responseは明示許可がない限り保存しません。Yahoo Finance adapterはlocal fixture専用で、sample値は実データと混ぜません。詳細は [External Data Policy](docs/external-data-policy.md) を参照してください。
 APIキーは `.env.example` を `.env` にコピーしてローカル設定します。`.env` はGit ignore対象です。キーをURL、source registry、コード、ログへ書かないでください。取得を有効にする前に、source/resource単位の利用規約、license、cache/publication権限、rate limit、request budgetを確認します。未確認なら取得せず、HTML scrapingもしません。raw responseは明示許可がない限り保存しません。Yahoo Finance adapterはlocal fixture専用で、sample値は実データと混ぜません。詳細は [External Data Policy](docs/external-data-policy.md) を参照してください。
 
-Alpha VantageとFREDはAPI仕様上keyをquery parameterで要求しますが、本プロジェクトのcredential policyはURLへのkey埋め込みを禁止します。そのため現状のadapterはfail-closedとなり、準拠する認証経路が用意されるまで利用できません。
+Alpha VantageとFREDはAPI仕様上keyをquery parameterで要求します。source registryやresource URLへkeyを埋め込むことは禁止したまま、adapter内部でのみkey付きrequestを生成し、source_urlやログにはbase URLのみを保持します。
 
 ## Branch Strategy
 
@@ -147,6 +159,16 @@ Alpha VantageとFREDはAPI仕様上keyをquery parameterで要求しますが、
 - 目標試算は収益予測ではありません。NISA満額月は対象商品をNISAで購入し、将来売却による枠再利用がない等の条件付きシナリオとして表示します。
 - 全入出金履歴・期首評価額などが不足する場合、年率リターン、年初来リターン、最大ドローダウン、実現損益を作りません。概算の資産クラス比率と実際の組入比率を区別します。
 - 公式資料のURLと参照日を記載します。参照日を自動的に当月へ変えず、再確認した場合だけ `scripts/diagnosis.py` の出典を更新します。スクリプトは資料の更新を自動取得しません。
+- risk_free_rateはFREDのTB3MS（3-Month Treasury Bill: 年率%）を採用します。Vanguard価格系列が月次ベースのため、月次のTB3MSを年率fractionへ正規化してSharpeへ入力します。1Y系列より観測点の安定性と系列長を優先しました。
+- return frequencyは価格系列の実観測間隔から推定し、periods_per_year = 365.2425 / mean_interval_days で年率化します。volatilityはsample標準偏差×sqrt(periods_per_year)です。
+- annualized_returnはCAGR = (end/start)^(1/years) - 1 を使用します。
+- Sharpeは periodic_rf = (1 + rf_annual)^(1/periods_per_year) - 1 で無リスクを同周期化し、(mean_periodic_return - periodic_rf) * periods_per_year / volatility で算出します。
+- tracking_differenceとtracking_errorはfundとbenchmarkのshared dateのみで明示的にalignmentし、active return系列から算出します。共有日が2点未満ならunavailableです。
+- sample periodはaligned系列の先頭日から末尾日です。必要観測数不足、重複日、非正価格などはdependency_failed/unavailableとして理由を保持します。
+- ETF price historyはTiingo adapterを第一候補とし、`adjClose`を使うdaily adjusted-close系列を優先します。5年以上のstart_dateをresource templateから指定し、配当・splitを反映した同一seriesを共通derived engineへ渡します。API key未設定時は`api_key_unavailable`のまま取得せず、raw price historyをpublic reportへ大量掲載しません。
+- Fund Scoreは [`config/scoring.yaml`](config/scoring.yaml) で管理する独自指標です。コスト、benchmark追随、リスク調整後実績、下落リスク、規模・安定性、分散、現在PFとの適合性を合計100点の重み付き平均で評価し、過去リターン単独では順位を決めません。各metricは同じRole/category内でpercentile正規化します。
+- missing/unavailable metricは0点にせず、そのmetricのweightを分母から外して再正規化します。利用可能weightの割合を `data_coverage_score` として別表示し、60%未満は参考値かつRole順位の対象外、Role候補3件未満も暫定評価とします。
+- 商品品質（Fund Quality）とPF適合度（Portfolio Fit）は分離して表示します。SBI取扱可否、NISA対象、円建て積立可否は理論上のFund Scoreへ混ぜず、将来のImplementation Scoreで別評価します。この方式は特定の外部ratingを再現するものではありません。
 
 ## Directory Structure and Storage
 

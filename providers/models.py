@@ -38,13 +38,20 @@ class DataRecord:
     data_origin: str
     source_role: str
     reason: str | None = None
+    dependency: str | None = None
+    root_cause: str | None = None
     raw_sha256: str | None = None
     age_days: int | None = None
+    http_status: int | None = None
+    metadata_type: str | None = None
+    series_type: str | None = None
+    frequency: str | None = None
+    currency: str | None = None
 
     def __post_init__(self):
         if self.status not in {'available', 'unavailable'}:
             raise ValueError('status must be available or unavailable')
-        if self.status == 'available' and (self.value is None or not self.as_of):
+        if self.status == 'available' and (self.value is None or (not self.as_of and self.metadata_type != 'static')):
             raise ValueError('available records require value and as_of')
         if self.status == 'unavailable' and self.value is not None:
             raise ValueError('unavailable records cannot carry a value')
