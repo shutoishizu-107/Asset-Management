@@ -1,8 +1,8 @@
 """Sections for the goal-first monthly investment report."""
+import re
 from decimal import Decimal, ROUND_HALF_UP
 from html import escape
 from datetime import date
-import json
 
 from history_report import (
     goal_projection,
@@ -197,10 +197,88 @@ _PORTFOLIO_ALLOCATION = [
 ]
 
 
+
+_METRIC_LABELS = {
+    'fund_name': 'ファンド名',
+    'ticker': 'ティッカー',
+    'asset_class': '資産クラス',
+    'role_category': '役割',
+    'benchmark': 'ベンチマーク',
+    'expense_ratio': '経費率',
+    'expense_ratio_bps': '経費率（bps）',
+    'total_expense_ratio': '総経費率',
+    'aum': '純資産総額',
+    'fund_age': '運用年数',
+    'fund_flow_1m': '1か月資金流入',
+    'fund_flow_1y': '1年資金流入',
+    'return_1y': '1年リターン',
+    'return_3y_annualized': '3年年率リターン',
+    'return_5y_annualized': '5年年率リターン',
+    'return_10y_annualized': '10年年率リターン',
+    'annualized_return': '年率リターン',
+    'volatility': 'ボラティリティ',
+    'max_drawdown': '最大下落率',
+    'sharpe_ratio': 'シャープレシオ',
+    'tracking_difference': 'トラッキング差',
+    'tracking_error': 'トラッキングエラー',
+    'number_of_holdings': '保有銘柄数',
+    'top10_concentration': '上位10銘柄比率',
+    'top10_holdings': '上位10銘柄',
+    'region_weights': '地域構成',
+    'sector_weights': 'セクター構成',
+    'overlap_with_current_portfolio': '現在PFとの重複率',
+    'overlap_with_sp500': 'S&P500との重複率',
+    'overlap_with_fang': 'FANG+との重複率',
+    'overlap_with_all_country': 'オルカンとの重複率',
+    'cost': 'コスト',
+    'tracking_quality': '指数追随性',
+    'risk_adjusted_performance': 'リスク調整後実績',
+    'downside_risk': '下落リスク',
+    'scale_stability': '規模・安定性',
+    'diversification': '分散',
+    'current_portfolio_fit': 'PF補完性',
+    'nisa_growth_eligible': '成長投資枠',
+    'nisa_tsumitate_eligible': 'つみたて投資枠',
+}
+
+_ROLE_LABELS = {
+    'global_core': '全世界株式コア',
+    'us_core': '米国株式コア',
+    'ex_us': '米国除く世界株式',
+    'ex_us_total': '米国除く全世界株式',
+    'developed_ex_us': '米国除く先進国株式',
+    'Global Core': '全世界株式コア',
+    'US Core': '米国株式コア',
+    'Ex-US': '米国除く先進国・全世界株式',
+    'Small / Value': '小型株・バリュー',
+    'Growth': 'グロース',
+    'Emerging Markets': '新興国株式',
+    'Japan': '日本株式',
+    'Gold': '金',
+    'Bonds': '債券',
+    'Real Assets': '実物資産',
+    'Unknown': '未分類',
+}
+
+_KNOWN_FUND_DISPLAY = {
+    'VT': 'Vanguard Total World Stock ETF (VT)',
+    'VTI': 'Vanguard Total Stock Market ETF (VTI)',
+    'VXUS': 'Vanguard Total International Stock ETF (VXUS)',
+    'VOO': 'Vanguard S&P 500 ETF (VOO)',
+}
+
+_PERCENT_METRICS = {
+    'expense_ratio', 'total_expense_ratio', 'return_1y', 'return_3y_annualized', 'return_5y_annualized',
+    'return_10y_annualized', 'annualized_return', 'volatility', 'max_drawdown', 'tracking_difference',
+    'tracking_error', 'top10_concentration', 'overlap_with_current_portfolio', 'overlap_with_sp500',
+    'overlap_with_fang', 'overlap_with_all_country',
+}
+
+
 _FUND_METRIC_GROUPS = {
     '基本・コスト・規模': (
         'fund_name', 'ticker', 'asset_class', 'role_category', 'benchmark', 'inception_date', 'currency',
-        'expense_ratio', 'total_expense_ratio', 'aum', 'fund_flow_1m', 'fund_flow_1y',
+        'expense_ratio', 'total_expense_ratio', 'aum', 'fund_age', 'fund_flow_1m', 'fund_flow_1y',
         'number_of_holdings', 'top10_concentration',
         'us_weight', 'tech_weight', 'small_cap_weight', 'value_exposure', 'growth_exposure',
         'nisa_tsumitate_eligible', 'nisa_growth_eligible', 'sbi_available', 'domestic_alternative',
@@ -224,17 +302,157 @@ _FUND_SUBJECT_METRICS = {
 
 def _metric_display(record):
     if record is None or record.get('status') != 'available':
-        reason = record.get('reason') if record else None
-        return 'unavailable' + (f" ({reason})" if reason else '')
-    value = record.get('value')
+        return _unavailable_text(record)
+    return _format_metric_value(str(record.get('metric') or ''), record.get('value'))
+
+
+def _metric_label(metric: str) -> str:
+    return _METRIC_LABELS.get(metric, metric)
+
+
+def _format_percent(value: float) -> str:
+    return f'{value * 100:.2f}%'
+
+
+def _format_metric_value(metric: str, value):
+    if value is None:
+        return '未取得'
+    if metric in _PERCENT_METRICS:
+        try:
+            return _format_percent(float(value))
+        except (TypeError, ValueError):
+            return '未取得'
+    if metric == 'expense_ratio_bps':
+        try:
+            return f'{float(value):.2f} bps'
+        except (TypeError, ValueError):
+            return '未取得'
+    if metric in {'aum', 'fund_flow_1m', 'fund_flow_1y'}:
+        try:
+            amount = float(value)
+        except (TypeError, ValueError):
+            return '未取得'
+        if abs(amount) >= 1_000_000_000:
+            return f'{amount / 1_000_000_000:.2f}B'
+        if abs(amount) >= 1_000_000:
+            return f'{amount / 1_000_000:.2f}M'
+        return f'{amount:,.0f}'
+    if metric == 'number_of_holdings':
+        try:
+            return f'{int(float(value)):,}'
+        except (TypeError, ValueError):
+            return '未取得'
+    if metric == 'top10_holdings' and isinstance(value, list):
+        rows = []
+        for item in value[:10]:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get('security_name') or item.get('security_id') or item.get('ticker') or 'unknown')
+            weight = item.get('weight')
+            try:
+                rows.append(name + ' ' + _format_percent(float(weight)))
+            except (TypeError, ValueError):
+                rows.append(name)
+        return ' / '.join(rows) if rows else '未取得'
+    if isinstance(value, bool):
+        return 'はい' if value else 'いいえ'
+    if isinstance(value, (int, float)):
+        return f'{float(value):.4f}'
+    if isinstance(value, dict):
+        pairs = []
+        for key, item_value in value.items():
+            try:
+                pairs.append(f'{key}: {_format_percent(float(item_value))}')
+            except (TypeError, ValueError):
+                pairs.append(f'{key}: {item_value}')
+        return ', '.join(pairs)
     if isinstance(value, list):
-        text = f'系列 {len(value)}点'
-    elif isinstance(value, (dict, bool, int, float, str)):
-        text = json.dumps(value, ensure_ascii=False, separators=(',', ':'))
-    else:
-        text = 'unavailable'
-    freshness = record.get('freshness_status', 'unavailable')
-    return f'{text} [{freshness}]'
+        return f'系列 {len(value)}点'
+    return str(value)
+
+
+def _unavailable_text(record):
+    if record is None:
+        return '未取得'
+    reason = str(record.get('reason') or '')
+    if reason == 'dependency_failed':
+        dependency = str(record.get('dependency') or '依存データ')
+        return f'計算不可（理由: {dependency}未取得）'
+    if reason in {'provider_disabled', 'resource_not_configured', 'license_not_approved', 'api_key_unavailable', 'holdings_not_available_from_source'}:
+        return '取得不可'
+    if reason in {'provider_returned_no_observations', 'benchmark_series_unavailable', 'risk_free_series_unavailable'}:
+        return '取得不可'
+    return '未取得'
+
+
+def _table(headers, rows, klass=''):
+    class_attr = f' class="{escape(klass, quote=True)}"' if klass else ''
+    head = '<div class="scroll"><table' + class_attr + '><thead><tr>' + ''.join('<th>' + escape(str(header)) + '</th>' for header in headers) + '</tr></thead><tbody>'
+    def render_cell(cell):
+        if isinstance(cell, tuple) and len(cell) == 2 and cell[0] == 'html':
+            return '<td>' + cell[1] + '</td>'
+        return '<td>' + escape(str(cell)) + '</td>'
+    body = ''.join('<tr>' + ''.join(render_cell(cell) for cell in row) + '</tr>' for row in rows)
+    return head + body + '</tbody></table></div>'
+
+
+def _best_records_by_subject_metric(records, subjects):
+    by_subject_metric = {}
+    for record in records:
+        subject = record.get('subject')
+        if subject not in subjects:
+            continue
+        key = (subject, record.get('metric'))
+        current = by_subject_metric.get(key)
+        rank = (
+            record.get('status') == 'available',
+            record.get('freshness_status') == 'fresh',
+            record.get('source_role') == 'primary',
+            record.get('fetched_at') or '',
+        )
+        if current is None or rank > current[0]:
+            by_subject_metric[key] = (rank, record)
+    return {key: value[1] for key, value in by_subject_metric.items()}
+
+
+def _role_label(raw_role):
+    text = str(raw_role or 'Unknown').strip()
+    return _ROLE_LABELS.get(text, text)
+
+
+def _subject_display_name(subject, by_subject_metric):
+    fund_name_record = by_subject_metric.get((subject, 'fund_name'))
+    ticker_record = by_subject_metric.get((subject, 'ticker'))
+    if fund_name_record and fund_name_record.get('status') == 'available':
+        name = str(fund_name_record.get('value'))
+        ticker = str(ticker_record.get('value')) if ticker_record and ticker_record.get('status') == 'available' else subject
+        return f'{name} ({ticker})'
+    return _KNOWN_FUND_DISPLAY.get(subject, subject)
+
+
+def _subject_role(subject, by_subject_metric):
+    role_record = by_subject_metric.get((subject, 'role_category'))
+    if role_record and role_record.get('status') == 'available':
+        return _role_label(role_record.get('value'))
+    if subject == 'VT':
+        return _ROLE_LABELS['Global Core']
+    return _ROLE_LABELS['Unknown']
+
+
+def _fund_anchor(subject, by_subject_metric):
+    ticker = by_subject_metric.get((subject, 'ticker'), {}).get('value') or subject
+    slug = re.sub(r'[^A-Za-z0-9]+', '-', str(ticker).lower()).strip('-') or 'fund'
+    return 'fund-detail-' + slug
+
+
+def _availability_score(subject, by_subject_metric):
+    core = ('expense_ratio', 'aum', 'return_5y_annualized', 'max_drawdown', 'top10_concentration', 'overlap_with_current_portfolio')
+    available = sum(
+        1
+        for metric in core
+        if by_subject_metric.get((subject, metric), {}).get('status') == 'available'
+    )
+    return available, len(core)
 
 
 def _render_api_fund_metrics(info):
@@ -247,45 +465,146 @@ def _render_api_fund_metrics(info):
         and record.get('provider_id') != 'analysis_engine'
     })
     if not fund_subjects:
-        return '<h3>API取得ファンドのmetric評価</h3><p>対象ファンドのAPI取得データはありません。取得・利用条件が承認されたデータが揃うまでは、実装候補の選定を保留します。</p>'
+        return '<h3>候補ファンド比較</h3><p>対象ファンドの取得済み評価データがありません。取得条件を満たしたデータが揃うまで比較表を表示しません。</p>'
 
-    by_subject_metric = {}
-    for record in records:
-        if record.get('subject') not in fund_subjects:
+    by_subject_metric = _best_records_by_subject_metric(records, fund_subjects)
+    evaluations = {
+        item.get('fund_id'): item
+        for item in info.get('external_data', {}).get('fund_evaluations', [])
+        if item.get('fund_id')
+    }
+    by_role = {}
+    for subject in fund_subjects:
+        role = _subject_role(subject, by_subject_metric)
+        by_role.setdefault(role, []).append(subject)
+
+    body = '<h3>候補ファンド比較</h3><p>比較表は意思決定用の主要指標だけを表示します。取得元・スコア内訳・各metricの詳細は <a href="#data-methodology">Data &amp; Methodology</a> を参照してください。</p>'
+    table_headers = ['評価状態', '候補数', 'ファンド', 'ティッカー', '経費率', '純資産総額', '5年年率リターン', '最大下落率', 'シャープレシオ', '総合スコア', 'データ充足率', '詳細']
+    role_order = [
+        _ROLE_LABELS['Global Core'], _ROLE_LABELS['US Core'], _ROLE_LABELS['ex_us'], _ROLE_LABELS['ex_us_total'], _ROLE_LABELS['developed_ex_us'], _ROLE_LABELS['Ex-US'], _ROLE_LABELS['Small / Value'],
+        _ROLE_LABELS['Growth'], _ROLE_LABELS['Emerging Markets'], _ROLE_LABELS['Japan'], _ROLE_LABELS['Gold'],
+        _ROLE_LABELS['Bonds'], _ROLE_LABELS['Real Assets'], _ROLE_LABELS['Unknown'],
+    ]
+    for role in role_order:
+        subjects = by_role.get(role, [])
+        if not subjects:
             continue
-        key = (record.get('subject'), record.get('metric'))
-        current = by_subject_metric.get(key)
-        rank = (
-            record.get('status') == 'available',
-            record.get('freshness_status') == 'fresh',
-            record.get('source_role') == 'primary',
-            record.get('fetched_at') or '',
-        )
-        if current is None or rank > current[0]:
-            by_subject_metric[key] = (rank, record)
-
-    body = '<h3>API取得ファンドのmetric評価</h3><p>API取得・許諾済みのファンドだけを掲載します。各セルは値と鮮度状態です。欠損metricはunavailableとして示し、部分データだけで順位付けしません。出典・基準日・取得日時は下のData Sourcesで確認できます。</p>'
-    for group_name, metrics in _FUND_METRIC_GROUPS.items():
+        ranked = sorted(
+            subjects,
+            key=lambda subject: (evaluations.get(subject, {}).get('score') is not None, evaluations.get(subject, {}).get('score') or -1),
+            reverse=True,
+        )[:5]
         rows = []
-        for subject in fund_subjects:
-            values = [subject]
-            for metric in metrics:
-                selected = by_subject_metric.get((subject, metric))
-                values.append(_metric_display(selected[1] if selected else None))
-            rows.append(values)
-        body += '<h4>' + escape(group_name) + '</h4>'
-        priorities = info.get('external_data', {}).get('metric_priority_level', {})
-        metric_headers = [f'{metric} ({priorities[metric]})' if metric in priorities else metric for metric in metrics]
-        body += simple_table(['API取得ファンド'] + metric_headers, rows)
+        for subject in ranked:
+            evaluation = evaluations.get(subject, {})
+            ticker_record = by_subject_metric.get((subject, 'ticker'))
+            evaluation_status = evaluation.get('evaluation_status', '参考スコア').split('（', 1)[0]
+            rows.append([
+                evaluation_status,
+                f"{evaluation.get('candidate_count', len(subjects))}/5",
+                _subject_display_name(subject, by_subject_metric),
+                _metric_display(ticker_record),
+                _metric_display(by_subject_metric.get((subject, 'expense_ratio'))),
+                _metric_display(by_subject_metric.get((subject, 'aum'))),
+                _metric_display(by_subject_metric.get((subject, 'return_5y_annualized'))),
+                _metric_display(by_subject_metric.get((subject, 'max_drawdown'))),
+                _metric_display(by_subject_metric.get((subject, 'sharpe_ratio'))),
+                _score_display(evaluation.get('score')),
+                _coverage_display(evaluation.get('data_coverage_score')),
+                ('html', '<a href="#' + escape(_fund_anchor(subject, by_subject_metric), quote=True) + '">詳細</a>'),
+            ])
+        body += '<h4>' + escape(role) + ' 上位' + str(len(rows)) + 'ファンド</h4>'
+        body += _table(table_headers, rows, klass='role-top5')
+
     return body
 
 
+def _score_display(value):
+    return '計算不可' if value is None else f'{float(value):.0f} / 100'
+
+
+def _coverage_display(value):
+    return '0%' if value is None else f'{float(value):.0f}%'
+
+
+def _render_score_details(evaluation):
+    if not evaluation:
+        return ''
+    rows = []
+    for category, item in evaluation.get('categories', {}).items():
+        label = _metric_label(category)
+        score = _score_display(item.get('score'))
+        available = float(item.get('available_weight', 0))
+        weight = float(item.get('weight', 0))
+        rows.append([label, score, f'{available:.1f} / {weight:.1f}'])
+    total_available = sum(float(item.get('available_weight', 0)) for item in evaluation.get('categories', {}).values())
+    total_weight = sum(float(item.get('weight', 0)) for item in evaluation.get('categories', {}).values())
+    body = '<h5>Coverage Breakdown</h5>' + _table(['評価軸', '利用可能weight / total weight', '点数'], [[row[0], row[2], row[1]] for row in rows])
+    body += '<p class="muted">Total Coverage: ' + f'{total_available / total_weight * 100:.0f}%' + '</p>' if total_weight else ''
+    return body + '<h5>スコア内訳</h5>' + _table(['評価軸', '点数', '配点'], [[row[0], row[1], 'weight ' + row[2].split(' / ')[1] + '%'] for row in rows])
+
+
+def _render_fund_details(subject, by_subject_metric, evaluation=None):
+    name = _subject_display_name(subject, by_subject_metric)
+    basic_metrics = ('fund_name', 'ticker', 'asset_class', 'role_category', 'benchmark')
+    cost_metrics = ('expense_ratio', 'expense_ratio_bps', 'total_expense_ratio', 'aum', 'fund_age', 'fund_flow_1m', 'fund_flow_1y')
+    risk_metrics = ('return_1y', 'return_3y_annualized', 'return_5y_annualized', 'annualized_return', 'volatility', 'max_drawdown', 'sharpe_ratio', 'tracking_difference', 'tracking_error')
+    holdings_metrics = ('number_of_holdings', 'top10_concentration', 'top10_holdings')
+    exposure_metrics = ('region_weights', 'sector_weights')
+    overlap_metrics = ('overlap_with_current_portfolio', 'overlap_with_sp500', 'overlap_with_fang', 'overlap_with_all_country')
+
+    body = '<details id="' + escape(_fund_anchor(subject, by_subject_metric), quote=True) + '"><summary>' + escape(name) + ' の詳細</summary>'
+    body += _render_score_details(evaluation)
+    body += _detail_table('基本情報', subject, basic_metrics, by_subject_metric)
+    body += _detail_table('コスト', subject, cost_metrics, by_subject_metric)
+    body += _detail_table('リターン・リスク', subject, risk_metrics, by_subject_metric)
+    body += _detail_table('Holdings', subject, holdings_metrics, by_subject_metric)
+    body += _detail_table('地域・セクター', subject, exposure_metrics, by_subject_metric)
+    body += _detail_table('PF重複', subject, overlap_metrics, by_subject_metric)
+
+    sample = next(
+        (
+            by_subject_metric.get((subject, metric))
+            for metric in ('expense_ratio', 'price_history', 'benchmark_price_history', 'benchmark', 'holdings')
+            if by_subject_metric.get((subject, metric)) is not None
+        ),
+        next((record for (record_subject, _), record in by_subject_metric.items() if record_subject == subject), None),
+    )
+    if sample is not None:
+        source_rows = [
+            ['provider', sample.get('provider_name') or sample.get('source_name') or '未取得'],
+            ['source', sample.get('source_name') or '未取得'],
+            ['source_url', sample.get('source_url') or '未取得'],
+            ['as_of', sample.get('as_of') or '未取得'],
+            ['fetched_at', sample.get('fetched_at') or '未取得'],
+            ['expires_at', sample.get('expires_at') or '未取得'],
+            ['freshness', sample.get('freshness_status') or '未取得'],
+            ['confidence', sample.get('confidence') or '未取得'],
+            ['license', sample.get('license_status') or '未取得'],
+            ['report_period', sample.get('report_period') or '未取得'],
+            ['dependency', sample.get('dependency') or ''],
+            ['root_cause', sample.get('root_cause') or sample.get('reason') or ''],
+        ]
+        body += _table(['Data source', '値'], source_rows)
+    body += '</details>'
+    return body
+
+
+def _detail_table(title, subject, metrics, by_subject_metric):
+    rows = []
+    for metric in metrics:
+        record = by_subject_metric.get((subject, metric))
+        rows.append([_metric_label(metric), _metric_display(record)])
+    return '<h5>' + escape(title) + '</h5>' + _table(['項目', '値'], rows)
+
+
 def render_portfolio_options(info):
-    body = '<section id="portfolio-options"><h2>推奨ポートフォリオ設計</h2><p>以下はジャンル配分のたたき台です。ファンド単位の優劣や本人のリスク許容度を確認した確定推奨ではありません。</p>'
+    body = '<section id="portfolio-options"><h2>推奨ポートフォリオ設計</h2><p>まず役割カテゴリごとの配分を示し、その後に各役割の実装候補を比較します。特定商品の自動推奨は行いません。</p>'
     allocation_rows = [[item['role'], f"{item['weight_pct']}%", item['purpose']] for item in _PORTFOLIO_ALLOCATION]
     allocation_rows.append(['合計', f"{sum(item['weight_pct'] for item in _PORTFOLIO_ALLOCATION)}%", ''])
-    body += '<h3>ジャンル配分</h3>'
+    body += '<h3>役割カテゴリ配分</h3>'
     body += simple_table(['役割・ジャンル', '目標配分', '設計意図'], allocation_rows)
+    body += '<p>各roleの実装候補は次の比較表で確認します。</p>'
     body += _render_api_fund_metrics(info)
     body += '<p class="muted">各ジャンルの実装候補は、上のAPI metricデータに加えてSBI取扱可否、NISA対象、データ鮮度を確認した後に最大5件まで絞ります。現時点では自動順位付け・選定は行いません。</p></section>'
     return body
@@ -336,6 +655,74 @@ def render_risk_scenarios(info):
     return body
 
 
+def _fund_status(records, subject):
+    metrics = {record.get('metric'): record for record in records if record.get('subject') == subject}
+    tracked = ('expense_ratio', 'aum', 'return_5y_annualized', 'volatility', 'max_drawdown', 'sharpe_ratio', 'tracking_error', 'top10_concentration', 'overlap_with_current_portfolio')
+    statuses = [metrics[metric].get('status') for metric in tracked if metric in metrics]
+    available = sum(status == 'available' for status in statuses)
+    if not statuses:
+        return '未取得'
+    if available == len(statuses):
+        return '全取得'
+    if available == 0:
+        return '取得不可'
+    return '一部未取得'
+
+
+def _render_fund_data_status(records, evaluations=None):
+    evaluations = evaluations or {}
+    subjects = sorted({
+        record.get('subject')
+        for record in records
+        if record.get('metric') == 'fund_name'
+        and record.get('subject') not in (None, '', 'unconfigured')
+    })
+    by_subject_metric = _best_records_by_subject_metric(records, subjects)
+    rows = []
+    for subject in subjects:
+        role = _subject_role(subject, by_subject_metric)
+        fetched_at = max(
+            (str(record.get('fetched_at') or '') for (record_subject, _), record in by_subject_metric.items() if record_subject == subject),
+            default='',
+        )
+        evaluation = evaluations.get(subject, {})
+        rows.append([
+            _subject_display_name(subject, by_subject_metric),
+            _metric_display(by_subject_metric.get((subject, 'ticker'))),
+            role,
+            _coverage_display(evaluation.get('data_coverage_score')),
+            _fund_status(records, subject),
+            fetched_at[:10] if fetched_at else '未取得',
+            ('html', '<a href="#' + escape(_fund_anchor(subject, by_subject_metric), quote=True) + '">詳細</a>'),
+        ])
+    return _table(
+        ['ファンド', 'ティッカー', 'Role', 'Coverage', '取得状態', '最終更新', '詳細'],
+        rows,
+        klass='fund-data-status',
+    )
+
+
+def _render_provider_coverage(records, subjects):
+    by_subject_metric = _best_records_by_subject_metric(records, subjects)
+    provider_subjects = {}
+    for subject in subjects:
+        metadata = by_subject_metric.get((subject, 'fund_name'), {})
+        provider = str(metadata.get('source_name') or metadata.get('provider_name') or 'unknown')
+        provider_subjects.setdefault(provider, []).append(subject)
+    metrics = ('expense_ratio', 'aum', 'price_history', 'benchmark', 'holdings')
+    rows = []
+    for provider, provider_funds in sorted(provider_subjects.items()):
+        cells = []
+        for metric in metrics:
+            available = sum(
+                by_subject_metric.get((subject, metric), {}).get('status') == 'available'
+                for subject in provider_funds
+            )
+            cells.append(f'{available}/{len(provider_funds)}')
+        rows.append([provider, len(provider_funds), *cells])
+    return _table(['Provider', 'Funds', 'Expense', 'AUM', 'Price', 'Benchmark', 'Holdings'], rows, klass='provider-coverage')
+
+
 def render_data_methodology(info):
     from history_report import render_history
 
@@ -344,7 +731,7 @@ def render_data_methodology(info):
     nisa = assumptions['nisa_snapshot']
     ref = assumptions['handover_reference']
     gain_gap = snapshot['totals']['gain_yen'] - ref['fund_gain_yen']
-    body = '<section id="methodology"><h2>Data &amp; Methodology</h2>'
+    body = '<section id="data-methodology"><h2>Data &amp; Methodology</h2>'
     body += simple_table(['入力・方法', '出典日/前提', '扱い'], [
         ['保有CSV', snapshot['export_timestamp_inferred'][:10] + '（出力日時推定 ' + snapshot['export_timestamp_inferred'][11:] + '）', '価格評価基準日時は不明'],
         ['注文履歴', info['history']['orders']['metadata']['発注開始年月日'] + ' ～ ' + info['history']['orders']['metadata']['発注終了年月日'], '発注記録'],
@@ -361,36 +748,20 @@ def render_data_methodology(info):
         and record.get('metric') in _FUND_SUBJECT_METRICS
         and record.get('subject') not in (None, '', 'unconfigured')
     }
-    external_rows = []
-    for record in external_records:
-        if record.get('subject') in (None, '', 'unconfigured') or record.get('metric') == 'portfolio_overlap':
-            continue
-        if record.get('provider_id') == 'analysis_engine' and record.get('subject') not in api_fund_subjects:
-            continue
-        value = record.get('value') if record.get('status') == 'available' else None
-        if isinstance(value, list):
-            display_value = f'系列 {len(value)}点' if value else '空系列'
-        else:
-            display_value = json.dumps(value, ensure_ascii=False, separators=(',', ':')) if value is not None else 'unavailable'
-        external_rows.append([
-            record.get('metric', 'unknown'),
-            record.get('subject', 'unknown'),
-            record.get('status', 'unavailable'),
-            display_value,
-            record.get('as_of') or 'unavailable',
-            record.get('fetched_at') or 'unavailable',
-            record.get('expires_at') or 'unavailable',
-            str(record.get('age_days')) + ' days' if record.get('age_days') is not None else 'unavailable',
-            record.get('freshness_status', 'stale' if record.get('stale', True) else 'fresh'),
-            record.get('confidence', 'unrated'),
-            record.get('provider_name', 'unknown'),
-            record.get('source_url') or 'unavailable',
-            record.get('license_status', 'unreviewed'),
-            record.get('report_period') or 'n/a',
-        ])
-    body += '<h3>外部データ取得状況</h3><p>取得は既定で無効です。実行時指定、source registryでの有効化、規約/ライセンス承認、request budgetとinterval、resource、必要なAPI keyがすべて揃った場合のみ取得します。公開許可が不明なraw/derived valueはここに値を出しません。</p>'
-    if external_rows:
-        body += simple_table(['metric', 'subject', 'status', 'value', 'as_of', 'fetched_at', 'expires_at', 'age', 'freshness', 'confidence', 'provider', 'source_url', 'license', 'report_period'], external_rows)
+    by_subject_metric = _best_records_by_subject_metric(external_records, api_fund_subjects)
+    evaluations = {
+        item.get('fund_id'): item
+        for item in external.get('fund_evaluations', [])
+        if item.get('fund_id')
+    }
+    body += '<h3>Scoring Methodology</h3><p>総合スコア = 利用可能metricの加重点 / 利用可能weight × 100。Data Coverage = 利用可能weight / total weight × 100。metricはRole内percentileで正規化し、missingは0点ではなくweightを除外して再正規化します。Fund QualityとPortfolio Fitを分離し、coverage 60%未満は順位対象外です。</p>'
+    body += '<h3>Provider Coverage</h3>' + _render_provider_coverage(external_records, api_fund_subjects)
+    body += '<h3>候補ファンド データ取得状況</h3><p>通常表示は1行1ファンドです。metric単位の状態・依存関係・出典日時は下のFund Data Detailsにまとめています。</p>'
+    if api_fund_subjects:
+        body += _render_fund_data_status(external_records, evaluations)
+        body += '<h3>Fund Data Details</h3><p>候補ファンド比較の「詳細」リンクから、この一覧の該当ファンドへ移動できます。</p>'
+        for subject in sorted(api_fund_subjects):
+            body += _render_fund_details(subject, by_subject_metric, evaluations.get(subject))
     else:
         body += '<p>外部providerのデータ記録はありません。</p>'
     body += '<p class="muted">availability: ' + str(external.get('available_count', 0)) + ' available / ' + str(external.get('unavailable_count', 0)) + ' unavailable. 公開許可済みの月次snapshotは `data/market/` に保存されGit管理対象外です。raw responseは明示許可がない限り保持しません。</p>'

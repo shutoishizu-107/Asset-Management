@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "fund_score": {
+    "cost": {
+      "weight": 20,
+      "metrics": {"expense_ratio": {"weight": 12, "direction": "lower"}, "total_expense_ratio": {"weight": 8, "direction": "lower"}}
+    },
+    "tracking_quality": {
+      "weight": 20,
+      "metrics": {"tracking_difference": {"weight": 10, "direction": "lower_abs"}, "tracking_error": {"weight": 10, "direction": "lower"}}
+    },
+    "risk_adjusted_performance": {
+      "weight": 15,
+      "metrics": {"sharpe_ratio": {"weight": 7, "direction": "higher"}, "return_5y_annualized": {"weight": 5, "direction": "higher"}, "return_3y_annualized": {"weight": 3, "direction": "higher"}}
+    },
+    "downside_risk": {
+      "weight": 10,
+      "metrics": {"max_drawdown": {"weight": 6, "direction": "higher"}, "volatility": {"weight": 4, "direction": "lower"}}
+    },
+    "scale_stability": {
+      "weight": 10,
+      "metrics": {"aum": {"weight": 6, "direction": "higher"}, "inception_date": {"weight": 4, "direction": "fund_age"}}
+    },
+    "diversification": {
+      "weight": 10,
+      "metrics": {"top10_concentration": {"weight": 4, "direction": "lower"}, "number_of_holdings": {"weight": 3, "direction": "higher"}, "region_weights": {"weight": 1.5, "direction": "diversity"}, "sector_weights": {"weight": 1.5, "direction": "diversity"}}
+    },
+    "current_portfolio_fit": {
+      "weight": 15,
+      "metrics": {"overlap_with_current_portfolio": {"weight": 15, "direction": "lower"}}
+    }
+  },
+  "coverage": {"high": 80, "medium": 60},
+  "ranking": {"min_role_candidates": 3, "min_data_coverage": 60}
+}

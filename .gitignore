@@ -8,3 +8,12 @@ cache/*
 data/market/
 __pycache__/
 *.py[cod]
+
+# local diagnostics
+status.txt
+full-final.txt
+full-discovery.out
+price-final-suite.out
+price-final-suite.err
+*.run.out
+*.run.err

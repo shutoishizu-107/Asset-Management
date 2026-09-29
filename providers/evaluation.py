@@ -5,6 +5,7 @@ from typing import Any
 
 from .metrics import derived_records, weighted_portfolio_overlap
 from .models import DataRecord, utc_now
+from .scoring import score_funds
 
 
 REQUIRED_FUND_METRICS = (
@@ -40,7 +41,13 @@ def evaluate_fund_readiness(fund_id: str, records: list[dict[str, Any]]) -> dict
     }
 
 
-def evaluate_funds(fund_ids: list[str], records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def evaluate_funds(
+    fund_ids: list[str],
+    records: list[dict[str, Any]],
+    scoring_config: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    if scoring_config is not None:
+        return score_funds(fund_ids, records, scoring_config)
     return [evaluate_fund_readiness(fund_id, records) for fund_id in fund_ids]
 
 
@@ -104,15 +111,26 @@ def derive_portfolio_overlaps(source_records: list[DataRecord], fund_ids: list[s
                 data_origin=provider.data_origin if provider else 'unknown',
                 source_role='primary',
                 reason=reason,
+                dependency='holdings' if reason is not None else None,
+                root_cause=reason if reason is not None else None,
                 age_days=provider.age_days if provider and reason is None else None,
+                http_status=provider.http_status if provider and reason is None else None,
             ))
     return result
 
 
 def _complete_holdings(records: list[DataRecord], subject: str) -> tuple[dict[str, float] | None, DataRecord | None, str | None]:
-    matches = [item for item in records if item.metric == 'holdings' and item.subject == subject and item.status == 'available']
-    if not matches:
+    all_matches = [item for item in records if item.metric == 'holdings' and item.subject == subject]
+    if not all_matches:
         return None, None, 'holdings_unavailable'
+    unavailable_reason = next((item.reason for item in all_matches if item.status == 'unavailable' and item.reason), None)
+    if unavailable_reason == 'holdings_not_available_from_source':
+        evidence = next((item for item in all_matches if item.status == 'unavailable'), all_matches[0])
+        return None, evidence, 'individual_holdings_unavailable'
+    matches = [item for item in all_matches if item.status == 'available']
+    if not matches:
+        evidence = next((item for item in all_matches if item.status == 'unavailable'), all_matches[0])
+        return None, evidence, 'holdings_unavailable'
     if len({(item.provider_id, item.as_of, item.source_url) for item in matches}) != 1:
         return None, matches[0], 'holdings_source_or_as_of_mismatch'
     if any(item.stale for item in matches):
@@ -122,8 +140,22 @@ def _complete_holdings(records: list[DataRecord], subject: str) -> tuple[dict[st
     weights = {}
     for item in matches:
         try:
-            security_id = str(item.value['security_id'])
+            security_name = str(item.value.get('security_name') or item.value.get('security_id') or '').strip()
+            if not security_name:
+                return None, matches[0], 'individual_holdings_unavailable'
+            aggregate_name = security_name.upper()
+            if aggregate_name.startswith(('REGION::', 'SECTOR::', 'ASSET::')):
+                return None, matches[0], 'individual_holdings_unavailable'
+            if any(token in security_name.lower() for token in ('region', 'sector', 'allocation', 'exposure')):
+                return None, matches[0], 'individual_holdings_unavailable'
             weight = float(item.value['weight'])
+            security_id = str(
+                item.value.get('ticker')
+                or item.value.get('isin')
+                or item.value.get('cusip')
+                or item.value.get('security_id')
+                or security_name
+            ).strip()
         except (KeyError, TypeError, ValueError):
             return None, matches[0], 'invalid_holding_weight'
         if not security_id or not 0 <= weight <= 1 or security_id in weights:
@@ -222,6 +254,8 @@ def _overlap_record(
     evidence_records: list[DataRecord | None],
 ) -> DataRecord:
     available = reason is None and outcome is not None and outcome.get('status') == 'available' and evidence is not None
+    root_cause = reason or 'overlap_unavailable'
+    failure_reason = None if available else 'dependency_failed'
     return DataRecord(
         schema_version=1,
         provider_id='analysis_engine',
@@ -248,13 +282,16 @@ def _overlap_record(
         data_class='derived',
         data_origin=evidence.data_origin if evidence else 'unknown',
         source_role='primary',
-        reason=None if available else (reason or 'overlap_unavailable'),
+        reason=failure_reason,
+        dependency=None if available else 'holdings',
+        root_cause=None if available else root_cause,
         age_days=evidence.age_days if available and evidence else None,
+        http_status=evidence.http_status if available and evidence else None,
     )
 
 
 def derive_holdings_summary_metrics(source_records: list[DataRecord], fund_ids: list[str]) -> list[DataRecord]:
-    """Derive holding count and top-10 weight only from complete holdings snapshots."""
+    """Derive holding count, top-10 weight, and top-10 constituents from complete holdings snapshots."""
     result = []
     for fund_id in fund_ids:
         weights, source, reason = _complete_holdings(source_records, fund_id)
@@ -263,15 +300,24 @@ def derive_holdings_summary_metrics(source_records: list[DataRecord], fund_ids: 
         if reason or weights is None:
             outcomes = {
                 metric: {'status': 'unavailable', 'value': None, 'reason': reason or 'holdings_unavailable'}
-                for metric in ('number_of_holdings', 'top10_concentration')
+                for metric in ('number_of_holdings', 'top10_concentration', 'top10_holdings')
             }
         else:
+            ranked = sorted(weights.items(), key=lambda item: item[1], reverse=True)
             outcomes = {
                 'number_of_holdings': {'status': 'available', 'value': len(weights), 'unit': 'count'},
                 'top10_concentration': {
                     'status': 'available',
-                    'value': sum(sorted(weights.values(), reverse=True)[:10]),
+                    'value': sum(weight for _, weight in ranked[:10]),
                     'unit': 'fraction',
+                },
+                'top10_holdings': {
+                    'status': 'available',
+                    'value': [
+                        {'security_id': security_id, 'weight': weight}
+                        for security_id, weight in ranked[:10]
+                    ],
+                    'unit': 'holdings_weight_fraction',
                 },
             }
         result.extend(derived_records(source, outcomes))

@@ -85,6 +85,18 @@ class CacheManagerTests(unittest.TestCase):
         self.assertEqual(stale.entry['fetch_status'], 'stale_fallback')
         self.assertEqual(stale.age_days, 15)
 
+    def test_holdings_semantic_error_does_not_use_stale_fallback(self):
+        self.manager.get('VT', 'holdings', self.provider, self.fetch_success({'top10': ['AAA']}))
+        self.clock.value += timedelta(days=15)
+
+        class SemanticError(Exception):
+            code = 'holdings_not_available_from_source'
+
+        result = self.manager.get('VT', 'holdings', self.provider, lambda: (_ for _ in ()).throw(SemanticError()))
+        self.assertEqual(result.status, 'unavailable')
+        self.assertEqual(result.reason, 'holdings_not_available_from_source')
+        self.assertIsNone(result.entry)
+
     def test_missing_cache_and_fetch_failure_is_unavailable(self):
         result = self.manager.get('VTI', 'aum', self.provider, lambda: self._raise('provider_down'))
         self.assertEqual(result.status, 'unavailable')

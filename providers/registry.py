@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -16,8 +17,8 @@ from .fund_flow import FundFlowProvider
 from .index_provider import FtseRussellProvider, IndexProvider, MsciProvider, NasdaqIndexesProvider, SpGlobalProvider
 from .invesco import InvescoProvider
 from .ishares import IsharesProvider
-from .models import DataRecord, public_projection
-from .metrics import calculate_price_metrics, derived_records
+from .models import DataRecord, public_projection, utc_now
+from .metrics import calculate_expense_ratio_metrics, calculate_price_metrics, derived_records
 from .morningstar import MorningstarProvider
 from .mutual_fund_jp import JapaneseMutualFundProvider
 from .nasdaq_data_link import NasdaqDataLinkProvider
@@ -26,6 +27,7 @@ from .spdr import SpdrProvider
 from .tiingo import TiingoProvider
 from .vanguard import VanguardProvider
 from .yahoo_finance import YahooFinanceDevelopmentProvider
+from .scoring import load_scoring_config
 
 
 ADAPTERS = {
@@ -51,6 +53,62 @@ ADAPTERS = {
     'fsa': FsaProvider,
     'toushin': ToushinProvider,
 }
+
+
+def load_fund_master(root: Path) -> dict[str, dict[str, Any]]:
+    path = root / 'config/funds.json'
+    if not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding='utf-8-sig'))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(f'Cannot parse fund master {path.name}: {type(error).__name__}') from None
+    funds = payload.get('funds') if isinstance(payload, dict) else None
+    if payload.get('schema_version') != 1 or not isinstance(funds, dict):
+        raise ValueError('Unsupported fund master schema')
+    return {str(subject): dict(metadata) for subject, metadata in funds.items()}
+
+
+def fund_master_records(root: Path, fund_master: dict[str, dict[str, Any]]) -> list[DataRecord]:
+    fetched_at = utc_now()
+    records = []
+    for subject, metadata in fund_master.items():
+        for metric, value in (
+            ('fund_name', metadata.get('fund_name')),
+            ('ticker', metadata.get('ticker')),
+            ('asset_class', metadata.get('asset_class')),
+            ('role_category', metadata.get('role')),
+        ):
+            if not value:
+                continue
+            records.append(DataRecord(
+                schema_version=1,
+                provider_id='fund_master',
+                provider_name='Fund Master',
+                metric=metric,
+                subject=subject,
+                status='available',
+                value=value,
+                unit='text',
+                source_name=str(metadata.get('provider') or 'Fund Master'),
+                source_url=metadata.get('official_source'),
+                fetched_at=fetched_at,
+                as_of='config',
+                expires_at=None,
+                report_period=None,
+                stale=False,
+                freshness_status='fresh',
+                confidence='verified',
+                license_status='approved',
+                cache_allowed=True,
+                redistribution_allowed=True,
+                raw_data_publication_allowed=True,
+                derived_data_publication_allowed=True,
+                data_class='raw',
+                data_origin='real',
+                source_role='primary',
+            ))
+    return records
 
 
 def load_registry(path: Path) -> dict[str, Any]:
@@ -147,6 +205,44 @@ def derive_price_history_metrics(records: list[DataRecord]) -> list[DataRecord]:
     return result
 
 
+def derive_expense_metrics(records: list[DataRecord]) -> list[DataRecord]:
+    result = []
+    for source in records:
+        if source.metric != 'expense_ratio':
+            continue
+        if source.status != 'available':
+            unavailable = {
+                'expense_ratio_bps': {
+                    'status': 'unavailable',
+                    'value': None,
+                    'reason': source.reason or 'expense_ratio_unavailable',
+                }
+            }
+            result.extend(derived_records(source, unavailable))
+            continue
+        result.extend(derived_records(source, calculate_expense_ratio_metrics(source.value)))
+    return result
+
+
+def derive_fund_age_metrics(records: list[DataRecord]) -> list[DataRecord]:
+    result = []
+    for source in records:
+        if source.metric != 'inception_date' or source.status != 'available':
+            continue
+        try:
+            inception = date.fromisoformat(str(source.value)[:10])
+            as_of = date.fromisoformat(str(source.as_of or source.fetched_at)[:10])
+            years = (as_of - inception).days / 365.2425
+            if years < 0:
+                continue
+        except (TypeError, ValueError):
+            continue
+        result.extend(derived_records(source, {
+            'fund_age': {'status': 'available', 'value': years, 'unit': 'years', 'as_of': as_of.isoformat(), 'metadata_type': None},
+        }))
+    return result
+
+
 def collect_latest(
     root: Path,
     fetch_enabled: bool | None = None,
@@ -155,6 +251,7 @@ def collect_latest(
     offline: bool = False,
     force_refresh: bool = False,
     portfolio_weights: dict[str, int | float] | None = None,
+    metrics: list[str] | None = None,
 ) -> dict[str, Any]:
     """Cache-first collection. Legacy fetch_enabled=False remains an offline alias."""
     if fetch_enabled is not None:
@@ -166,9 +263,14 @@ def collect_latest(
         raise ValueError('offline and force_refresh cannot be used together')
 
     config = load_registry(root / 'sources.yaml')
+    fund_master = load_fund_master(root)
+    scoring_config = load_scoring_config(root)
     collector = ProviderCollector(root, config, ADAPTERS, offline=offline, force_refresh=force_refresh, persist_cache=persist)
-    records = collector.collect()
+    records = collector.collect(metrics=metrics)
+    records.extend(fund_master_records(root, fund_master))
     records.extend(derive_price_history_metrics(records))
+    records.extend(derive_expense_metrics(records))
+    records.extend(derive_fund_age_metrics(records))
     fund_metric_names = {
         'expense_ratio', 'total_expense_ratio', 'aum', 'fund_flow_1m', 'fund_flow_1y',
         'fund_name', 'ticker', 'asset_class', 'role_category', 'benchmark', 'inception_date', 'currency',
@@ -198,7 +300,9 @@ def collect_latest(
         'requests_made': collector.request_count,
         'records': [record.to_dict() for record in records],
         'public_records': projected,
-        'fund_evaluations': evaluate_funds(api_fund_ids, projected),
+        'fund_evaluations': evaluate_funds(api_fund_ids, projected, scoring_config),
         'metric_priority_level': config.get('metric_priority_level', {}),
+        'scoring_config': scoring_config,
+        'diagnostics': collector.diagnostics(),
         'snapshot_path': None,
     }

@@ -29,12 +29,16 @@ class Observation:
     metric: str
     value: Any
     unit: str | None
-    as_of: str
+    as_of: str | None
     source_url: str
     data_class: str = 'raw'
     data_origin: str = 'real'
     max_staleness_days: int | None = None
     report_period: str | None = None
+    metadata_type: str | None = None
+    series_type: str | None = None
+    frequency: str | None = None
+    currency: str | None = None
 
 
 class HttpsRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -87,7 +91,10 @@ def request_csv(url: str, headers: dict[str, str] | None = None, timeout: int = 
     validate_safe_source_url(url)
     raw = request_bytes(url, headers=headers, timeout=timeout)
     try:
-        rows = list(csv.DictReader(io.StringIO(raw.decode('utf-8-sig'))))
+        text = raw.decode('utf-8-sig')
+        if text.lstrip().lower().startswith(('<!doctype html', '<html')):
+            raise ProviderError('structured_response_is_html')
+        rows = list(csv.DictReader(io.StringIO(text)))
     except (UnicodeDecodeError, csv.Error):
         raise ProviderError('invalid_csv') from None
     if not rows:
@@ -139,7 +146,12 @@ class ConfiguredStructuredProvider:
                     continue
                 if metric == 'holdings' and resource.get('weight_unit') == 'percent':
                     parsed_number /= Decimal(100)
-                value: Any = format(parsed_number, 'f')
+                scale = resource.get('value_scale')
+                if scale == 'million':
+                    parsed_number *= Decimal(1_000_000)
+                elif scale == 'billion':
+                    parsed_number *= Decimal(1_000_000_000)
+                value: Any = format(parsed_number.normalize(), 'f')
             except InvalidOperation:
                 value = raw_value
             subject = str(row.get(mapping.get('subject', 'subject'), resource.get('subject', 'unconfigured')))
@@ -157,8 +169,20 @@ class ConfiguredStructuredProvider:
                 security_id = row.get(mapping.get('security_id', 'security_id'))
                 if security_id in (None, ''):
                     continue
+                security_name = str(row.get(mapping.get('security_name', 'security_name')) or security_id).strip()
+                normalized_name = security_name.upper()
+                if normalized_name.startswith(('REGION::', 'SECTOR::', 'ASSET::')) or any(token in security_name.lower() for token in ('region', 'sector', 'allocation', 'exposure')):
+                    continue
                 complete = resource.get('holdings_complete') is True
-                observations.append(Observation(value={'security_id': str(security_id), 'weight': value, 'complete': complete}, as_of=as_of, **common))
+                observations.append(Observation(value={
+                    'security_name': security_name,
+                    'security_id': str(security_id),
+                    'ticker': row.get(mapping.get('ticker', 'ticker')) or None,
+                    'isin': row.get(mapping.get('isin', 'isin')) or None,
+                    'cusip': row.get(mapping.get('cusip', 'cusip')) or None,
+                    'weight': value,
+                    'complete': complete,
+                }, as_of=as_of, **common))
             elif metric in {'price_history', 'nav'}:
                 series_groups.setdefault(subject, []).append({'date': as_of, 'value': value})
             else:

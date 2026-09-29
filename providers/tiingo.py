@@ -30,12 +30,28 @@ class TiingoProvider:
             raise ProviderError('unexpected_response_shape')
         field = str(resource.get('price_field', 'adjClose'))
         points = []
+        seen_dates = set()
         for row in payload:
             if not isinstance(row, dict) or row.get(field) is None or row.get('date') is None:
                 continue
             points.append({'date': str(row['date'])[:10], 'value': float(row[field])})
+            if points[-1]['date'] in seen_dates or points[-1]['value'] <= 0:
+                raise ProviderError('invalid_price_series')
+            seen_dates.add(points[-1]['date'])
         points.sort(key=lambda row: row['date'])
         if not points:
             raise ProviderError('price_series_unavailable')
-        observation = Observation(ticker, str(resource.get('metric', 'price_history')), points, str(resource.get('unit', 'USD')), points[-1]['date'], base + '/' + ticker + '/prices', 'raw', max_staleness_days=resource.get('max_staleness_days'))
+        observation = Observation(
+            ticker,
+            str(resource.get('metric', 'price_history')),
+            points,
+            str(resource.get('unit', 'USD')),
+            points[-1]['date'],
+            base + '/' + ticker + '/prices',
+            'raw',
+            max_staleness_days=resource.get('max_staleness_days'),
+            series_type='adjusted_close' if field == 'adjClose' else 'close',
+            frequency='daily',
+            currency=str(resource.get('unit', 'USD')),
+        )
         return [observation], raw

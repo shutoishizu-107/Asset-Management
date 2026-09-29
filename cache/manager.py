@@ -109,9 +109,18 @@ class CacheManager:
             raise ValueError('cache_malformed')
         if not entry.get('provider') or not entry.get('source_url') or entry.get('data') is None:
             raise ValueError('cache_malformed')
+        if metric == 'holdings':
+            observations = entry.get('data', {}).get('observations') if isinstance(entry.get('data'), dict) else None
+            if isinstance(observations, list):
+                for observation in observations:
+                    value = observation.get('value') if isinstance(observation, dict) else None
+                    security_name = str((value or {}).get('security_name') or (value or {}).get('security_id') or '').strip()
+                    normalized = security_name.upper()
+                    if normalized.startswith(('REGION::', 'SECTOR::', 'ASSET::')) or any(token in security_name.lower() for token in ('region', 'sector', 'allocation', 'exposure')):
+                        raise ValueError('cache_semantic_invalid')
         _iso_datetime(entry['fetched_at'])
         _iso_datetime(entry['expires_at'])
-        if not isinstance(entry.get('as_of'), str) or not entry['as_of'].strip():
+        if entry.get('metadata_type') != 'static' and (not isinstance(entry.get('as_of'), str) or not entry['as_of'].strip()):
             raise ValueError('cache_malformed')
 
     def _write_entry(self, path: Path, entity_id: str, metric: str, provider_id: str, entry: dict[str, Any]) -> None:
@@ -181,7 +190,8 @@ class CacheManager:
                 raise ValueError('provider_returned_empty_or_zero_value')
             source_url = fetched.get('source_url')
             as_of = fetched.get('as_of')
-            if not source_url or not as_of:
+            metadata_type = fetched.get('metadata_type')
+            if not source_url or (not as_of and metadata_type != 'static'):
                 raise ValueError('provider_missing_source_url_or_as_of')
             fetched_at = now.isoformat(timespec='seconds')
             entry = {
@@ -193,10 +203,12 @@ class CacheManager:
                 'provider_version': fetched.get('provider_version', provider.get('provider_version')),
                 'source_url': str(source_url),
                 'fetched_at': fetched_at,
-                'as_of': str(as_of),
+                'as_of': str(as_of) if as_of is not None else None,
+                'metadata_type': metadata_type,
                 'expires_at': (now + timedelta(days=ttl)).isoformat(timespec='seconds'),
                 'stale': False,
                 'license_status': str(fetched.get('license_status') or provider.get('license_status', 'unknown')),
+                'confidence': str(fetched.get('confidence') or provider.get('confidence', 'unrated')),
                 'cache_allowed': provider.get('cache_allowed', False) is True,
                 'raw_data_publication_allowed': provider.get('raw_data_publication_allowed', False),
                 'derived_data_publication_allowed': provider.get('derived_data_publication_allowed', False),
@@ -205,6 +217,7 @@ class CacheManager:
                 'last_successful_fetch_at': fetched_at,
                 'content_hash': hashlib.sha256(json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False).encode('utf-8')).hexdigest(),
                 'report_period': fetched.get('report_period'),
+                'http_status': fetched.get('http_status'),
                 'data': data,
             }
             if entry['cache_allowed'] and persist_cache:
@@ -217,6 +230,13 @@ class CacheManager:
                 fetch_error = error_code
             else:
                 fetch_error = str(error) if str(error).startswith(('provider_', 'http_status_', 'invalid_', 'cache_', 'offline_', 'api_key_', 'license_', 'dataset_', 'request_', 'fund_flow_')) else f'fetch_error:{type(error).__name__}'
+
+        no_stale_fallback_errors = {
+            # Semantic guard: aggregate-only allocation rows must not be reused as holdings.
+            'holdings_not_available_from_source',
+        }
+        if fetch_error in no_stale_fallback_errors:
+            return CacheResult('unavailable', entity_id, metric, provider_id, None, None, fetch_error)
 
         if cached is not None:
             stale = dict(cached, stale=True, fetch_status='stale_fallback', error_message=fetch_error)

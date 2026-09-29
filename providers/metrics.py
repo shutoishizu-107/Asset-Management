@@ -151,11 +151,59 @@ def calculate_price_metrics(
     return result
 
 
+def calculate_expense_ratio_metrics(value: Any) -> dict[str, dict[str, Any]]:
+    try:
+        ratio = float(value)
+    except (TypeError, ValueError):
+        return {
+            'expense_ratio_bps': {'status': 'unavailable', 'value': None, 'reason': 'invalid_expense_ratio_value'},
+        }
+    if not math.isfinite(ratio) or ratio < 0:
+        return {
+            'expense_ratio_bps': {'status': 'unavailable', 'value': None, 'reason': 'invalid_expense_ratio_value'},
+        }
+    return {
+        'expense_ratio_bps': {
+            'status': 'available',
+            'value': ratio * 10000,
+            'unit': 'basis_points',
+        }
+    }
+
+
 def derived_records(source: DataRecord, metrics: dict[str, dict[str, Any]]) -> list[DataRecord]:
+    dependency_reason_map = {
+        'benchmark_series_unavailable': 'benchmark_price_history',
+        'risk_free_series_unavailable': 'risk_free_rate',
+        'price_series_unavailable': 'price_history',
+    }
     records = []
     for metric, outcome in metrics.items():
         available = outcome['status'] == 'available' and source.status == 'available'
+        dependency = None
+        root_cause = None
+        reason = outcome.get('reason') if not available else None
+        if not available:
+            if source.status != 'available':
+                dependency = source.metric
+                root_cause = source.reason or f'{source.metric}_unavailable'
+                if dependency == 'holdings' and root_cause == 'holdings_not_available_from_source':
+                    root_cause = 'individual_holdings_unavailable'
+                reason = 'dependency_failed'
+            elif reason in dependency_reason_map:
+                dependency = dependency_reason_map[reason]
+                root_cause = reason
+                reason = 'dependency_failed'
+            elif reason in {'individual_holdings_unavailable', 'holdings_not_available_from_source'}:
+                dependency = 'holdings'
+                root_cause = 'individual_holdings_unavailable'
+                reason = 'dependency_failed'
+            elif isinstance(reason, str) and reason.startswith('holdings_'):
+                dependency = 'holdings'
+                root_cause = reason
+                reason = 'dependency_failed'
         records.append(DataRecord(
+            metadata_type=outcome.get('metadata_type', source.metadata_type),
             schema_version=1,
             provider_id='analysis_engine',
             provider_name='Local analysis engine',
@@ -167,7 +215,7 @@ def derived_records(source: DataRecord, metrics: dict[str, dict[str, Any]]) -> l
             source_name=source.source_name,
             source_url=source.source_url,
             fetched_at=utc_now(),
-            as_of=source.as_of if available else None,
+            as_of=(outcome.get('as_of') or source.as_of) if available else None,
             expires_at=source.expires_at if available else None,
             report_period=source.report_period,
             stale=source.stale if available else True,
@@ -181,8 +229,11 @@ def derived_records(source: DataRecord, metrics: dict[str, dict[str, Any]]) -> l
             data_class='derived',
             data_origin=source.data_origin,
             source_role=source.source_role,
-            reason=outcome.get('reason') if not available else None,
+            reason=reason,
+            dependency=dependency,
+            root_cause=root_cause,
             age_days=source.age_days if available else None,
+            http_status=source.http_status,
         ))
     return records
 
